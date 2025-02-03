@@ -33,7 +33,6 @@ Thumbs.db
 
 # FastAPI/Uvicorn-related logs
 logs/
-*.log
 nohup.out
 
 # Pytest and coverage reports
@@ -44,3 +43,10 @@ pytest_cache/
 # Dependency lock files (if using poetry)
 poetry.lock
 Pipfile.lock
+
+
+# Ignore uploaded files
+uploads/
+
+# Ignore environment files (if any)
+.env
