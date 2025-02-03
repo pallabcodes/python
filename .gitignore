@@ -1,0 +1,46 @@
+# Environment files
+*.env
+env
+
+# IDE / Editor settings
+.idea/
+.vscode/
+
+# Python files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Database files
+*.sqlite
+*.db
+*.sqlite3
+migrations/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Bytecode cache
+*.cache
+
+# FastAPI/Uvicorn-related logs
+logs/
+*.log
+nohup.out
+
+# Pytest and coverage reports
+htmlcov/
+.coverage
+pytest_cache/
+
+# Dependency lock files (if using poetry)
+poetry.lock
+Pipfile.lock
