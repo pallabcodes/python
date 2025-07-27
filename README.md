@@ -33,6 +33,6 @@ This is file tells Python that this directory is a package.
 
 # To run the latest project i.e. Project 5
 
-1. Actiavte venv and then cd /home/pallab/Downloads/FastAPI-The-Complete-Course/Project\ 5
+1. Actiavte venv and then cd /home/pallab/Downloads/<project_directory>/Project\ 5
 
 2. uvicorn TodoApp.main:app --reload (and then it will run at http://127.0.0.1:8000, swagger: http://127.0.0.1:8000/docs)
