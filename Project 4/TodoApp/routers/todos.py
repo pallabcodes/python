@@ -7,9 +7,10 @@ from ..models import Todos
 from ..database import SessionLocal
 from .auth import get_current_user
 
+# Create a router for todo endpoints
 router = APIRouter()
 
-
+# Dependency function to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -17,25 +18,24 @@ def get_db():
     finally:
         db.close()
 
-
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
-
+# Pydantic model for validating todo requests
 class TodoRequest(BaseModel):
     title: str = Field(min_length=3)
     description: str = Field(min_length=3, max_length=100)
     priority: int = Field(gt=0, lt=6)
     complete: bool
 
-
+# Get all todos for the current user
 @router.get("/", status_code=status.HTTP_200_OK)
 async def read_all(user: user_dependency, db: db_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail='Authentication Failed')
     return db.query(Todos).filter(Todos.owner_id == user.get('id')).all()
 
-
+# Get a specific todo by its ID for the current user
 @router.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
 async def read_todo(user: user_dependency, db: db_dependency, todo_id: int = Path(gt=0)):
     if user is None:

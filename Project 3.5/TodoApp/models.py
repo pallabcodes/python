@@ -1,7 +1,7 @@
 from database import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 
-
+# User table definition
 class Users(Base):
     __tablename__ = 'users'
 
@@ -13,9 +13,9 @@ class Users(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     role = Column(String)
-    phone_number = Column(String)
+    phone_number = Column(String)  # New field for user's phone number
 
-
+# Todo table definition
 class Todos(Base):
     __tablename__ = 'todos'
 
@@ -25,3 +25,4 @@ class Todos(Base):
     priority = Column(Integer)
     complete = Column(Boolean, default=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
+

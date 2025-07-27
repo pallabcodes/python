@@ -3,9 +3,10 @@ from fastapi import FastAPI, Path, Query, HTTPException, Body
 from pydantic import BaseModel, Field
 from starlette import status
 
+# Create a FastAPI app instance
 app = FastAPI()
 
-
+# Define a Book class to represent a book object
 class Book:
     id: int
     title: str
@@ -14,6 +15,7 @@ class Book:
     rating: int
     published_date: int
 
+    # The constructor initializes all the properties of a Book
     def __init__(self, id, title, author, description, rating, published_date):
         self.id = id
         self.title = title
@@ -22,15 +24,16 @@ class Book:
         self.rating = rating
         self.published_date = published_date
 
-
+# Define a BookRequest model for validating incoming data using Pydantic
 class BookRequest(BaseModel):
     id: Optional[int] = Field(description='ID is not needed on create', default=None)
     title: str = Field(min_length=3)
     author: str = Field(min_length=1)
     description: str = Field(min_length=1, max_length=100)
-    rating: int = Field(gt=0, lt=6)
-    published_date: int = Field(gt=1999, lt=2031)
+    rating: int = Field(gt=0, lt=6)  # rating must be between 1 and 5
+    published_date: int = Field(gt=1999, lt=2031)  # year must be between 2000 and 2030
 
+    # Example data for documentation
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -42,10 +45,8 @@ class BookRequest(BaseModel):
             }
         }
     }
-        
 
-
-
+# Create a list of Book objects to act as our in-memory database
 BOOKS = [
     Book(1, 'Computer Science Pro', 'codingwithroby', 'A very nice book!', 5, 2030),
     Book(2, 'Be Fast with FastAPI', 'codingwithroby', 'A great book!', 5, 2030),

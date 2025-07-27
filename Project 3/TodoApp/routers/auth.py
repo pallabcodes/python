@@ -10,18 +10,23 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 
+# Create a router for authentication endpoints
 router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
 
+# Secret key and algorithm for JWT token creation
 SECRET_KEY = '197b2c37c391bed93fe80344fe73b806947a65e36206e05a1a23c2fa12702fe3'
 ALGORITHM = 'HS256'
 
+# Set up password hashing using bcrypt
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+# Set up OAuth2 password bearer for token authentication
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 
+# Model for user registration requests
 class CreateUserRequest(BaseModel):
     username: str
     email: str
@@ -31,11 +36,13 @@ class CreateUserRequest(BaseModel):
     role: str
 
 
+# Model for returning JWT tokens
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 
+# Dependency to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -47,15 +54,18 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
+# Authenticate a user by username and password
 def authenticate_user(username: str, password: str, db):
     user = db.query(Users).filter(Users.username == username).first()
     if not user:
         return False
+    # Check if the password matches the hashed password in the database
     if not bcrypt_context.verify(password, user.hashed_password):
         return False
     return user
 
 
+# Create a JWT token for the user
 def create_access_token(username: str, user_id: int, role: str, expires_delta: timedelta):
     encode = {'sub': username, 'id': user_id, 'role': role}
     expires = datetime.now(timezone.utc) + expires_delta
@@ -63,6 +73,7 @@ def create_access_token(username: str, user_id: int, role: str, expires_delta: t
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
+# Get the current user from the JWT token
 async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -78,6 +89,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
                             detail='Could not validate user.')
 
 
+# Endpoint to create/register a new user
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency,
                       create_user_request: CreateUserRequest):
@@ -87,7 +99,7 @@ async def create_user(db: db_dependency,
         first_name=create_user_request.first_name,
         last_name=create_user_request.last_name,
         role=create_user_request.role,
-        hashed_password=bcrypt_context.hash(create_user_request.password),
+        hashed_password=bcrypt_context.hash(create_user_request.password), # Hash the password
         is_active=True
     )
 
@@ -95,6 +107,7 @@ async def create_user(db: db_dependency,
     db.commit()
 
 
+# Endpoint to log in and get a JWT token
 @router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
                                  db: db_dependency):
@@ -102,6 +115,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Could not validate user.')
+    # Create a token valid for 20 minutes
     token = create_access_token(user.username, user.id, user.role, timedelta(minutes=20))
 
     return {'access_token': token, 'token_type': 'bearer'}

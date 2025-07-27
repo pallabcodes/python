@@ -1,10 +1,9 @@
 from database import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 
-
+# User table definition
 class Users(Base):
     __tablename__ = 'users'
-
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True)
     username = Column(String, unique=True)
@@ -14,10 +13,9 @@ class Users(Base):
     is_active = Column(Boolean, default=True)
     role = Column(String)
 
-
+# Todo table definition
 class Todos(Base):
     __tablename__ = 'todos'
-
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
     description = Column(String)

@@ -1,8 +1,9 @@
 from fastapi import Body, FastAPI
 
+# Create a FastAPI app instance
 app = FastAPI()
 
-
+# This is a list of books, each book is a dictionary with title, author, and category
 BOOKS = [
     {'title': 'Title One', 'author': 'Author One', 'category': 'science'},
     {'title': 'Title Two', 'author': 'Author Two', 'category': 'science'},
@@ -12,19 +13,19 @@ BOOKS = [
     {'title': 'Title Six', 'author': 'Author Two', 'category': 'math'}
 ]
 
-
+# This endpoint returns all books in the BOOKS list
 @app.get("/books")
 async def read_all_books():
     return BOOKS
 
-
+# This endpoint returns a book that matches the given title (case-insensitive)
 @app.get("/books/{book_title}")
 async def read_book(book_title: str):
     for book in BOOKS:
         if book.get('title').casefold() == book_title.casefold():
             return book
 
-
+# This endpoint returns all books in a given category (category is passed as a query parameter)
 @app.get("/books/")
 async def read_category_by_query(category: str):
     books_to_return = []
@@ -33,18 +34,16 @@ async def read_category_by_query(category: str):
             books_to_return.append(book)
     return books_to_return
 
-
-# Get all books from a specific author using path or query parameters
+# This endpoint returns all books by a specific author (author is passed as a query parameter)
 @app.get("/books/byauthor/")
 async def read_books_by_author_path(author: str):
     books_to_return = []
     for book in BOOKS:
         if book.get('author').casefold() == author.casefold():
             books_to_return.append(book)
-
     return books_to_return
 
-
+# This endpoint returns all books by a specific author and category (both passed as parameters)
 @app.get("/books/{book_author}/")
 async def read_author_category_by_query(book_author: str, category: str):
     books_to_return = []

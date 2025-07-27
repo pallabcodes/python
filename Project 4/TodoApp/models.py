@@ -1,7 +1,7 @@
 from .database import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 
-
+# User table definition
 class Users(Base):
     __tablename__ = 'users'
 
@@ -15,7 +15,7 @@ class Users(Base):
     role = Column(String)
     phone_number = Column(String)
 
-
+# Todo table definition
 class Todos(Base):
     __tablename__ = 'todos'
 

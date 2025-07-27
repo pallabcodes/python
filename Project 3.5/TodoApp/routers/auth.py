@@ -10,18 +10,23 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 
+# Create a router for authentication endpoints
 router = APIRouter(
-    prefix='/auth',
-    tags=['auth']
+    prefix='/auth',  # All endpoints start with /auth
+    tags=['auth']    # Tag for documentation
 )
 
+# Secret key and algorithm for JWT token creation
 SECRET_KEY = '197b2c37c391bed93fe80344fe73b806947a65e36206e05a1a23c2fa12702fe3'
 ALGORITHM = 'HS256'
 
+# Set up password hashing using bcrypt
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+# Set up OAuth2 password bearer for token authentication
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 
+# Model for user registration requests
 class CreateUserRequest(BaseModel):
     username: str
     email: str
@@ -29,14 +34,16 @@ class CreateUserRequest(BaseModel):
     last_name: str
     password: str
     role: str
-    phone_number: str
+    phone_number: str  # New field for phone number
 
 
+# Model for returning JWT tokens
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 
+# Dependency to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -48,15 +55,18 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
+# Authenticate a user by username and password
 def authenticate_user(username: str, password: str, db):
     user = db.query(Users).filter(Users.username == username).first()
     if not user:
         return False
+    # Check if the password matches the hashed password in the database
     if not bcrypt_context.verify(password, user.hashed_password):
         return False
     return user
 
 
+# Create a JWT token for the user
 def create_access_token(username: str, user_id: int, role: str, expires_delta: timedelta):
     encode = {'sub': username, 'id': user_id, 'role': role}
     expires = datetime.now(timezone.utc) + expires_delta
@@ -110,7 +120,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
 
 
 
-
-
-
-
+# Handles user registration and login.
+# Passwords are securely hashed.
+# JWT tokens are used for authentication.
+# Adds phone number to user registration.
