@@ -1,0 +1,36 @@
+# Project specific ignores
+*.log
+*.tmp
+*.temp
+*.pid
+
+# Benchmark outputs
+benchmarks/**/*.out
+benchmarks/**/*.prof
+benchmarks/**/*.pstats
+
+# Profiling data
+*.prof
+*.pstats
+*.lprof
+
+# Test outputs
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Data files (if any)
+*.csv
+*.json
+!**/test_data/**/*.json
+!**/test_data/**/*.csv
+
+# Virtual environment (project specific)
+venv/
+env/
+

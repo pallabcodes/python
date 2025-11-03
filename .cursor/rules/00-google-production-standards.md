@@ -1,0 +1,380 @@
+# Google Production Code Standards
+
+## ⚠️ CRITICAL: Production-Grade Code Standards
+
+This codebase follows **Google SDE-3 level production standards**. Every line of code will be reviewed and scrutinized by **Principal Engineers** to determine if it's worthy of acceptance into the production codebase.
+
+## Role Context
+
+This project is authored by:
+- **SDE-3 Google Backend Engineer** - Production-grade backend systems
+- **Low-Level System Engineer** - Deep system understanding and optimization
+- **DevOps Automation Engineer** - Infrastructure and automation expertise
+
+## Code Review Standards
+
+### Principal Engineer Review Process
+
+#### Every Code Submission Must:
+1. **Pass Principal Engineer scrutiny** - Code must meet Google production standards
+2. **Be production-ready** - No exceptions, no "good enough" code
+3. **Be maintainable** - Future engineers must understand it immediately
+4. **Be debuggable** - Bugs must be detectable within 5-20 minutes
+5. **Be scalable** - Must handle production scale
+6. **Be testable** - Comprehensive test coverage required
+
+### Review Criteria
+
+#### Code Quality Checklist
+- [ ] **Production-ready** - No TODOs, no temporary code, no hacks
+- [ ] **Principal Engineer approved** - Would a Principal Engineer approve this?
+- [ ] **Maintainable** - Any engineer can understand and modify this
+- [ ] **Debuggable** - Bugs can be found in 5-20 minutes max
+- [ ] **Scalable** - Handles production scale gracefully
+- [ ] **Testable** - Comprehensive test coverage
+- [ ] **Documented** - Every public API is documented
+- [ ] **Type-safe** - Full type coverage, no `Any` unless necessary
+- [ ] **Error-handled** - All error cases handled properly
+- [ ] **Logged** - Proper logging at appropriate levels
+- [ ] **Performance-optimized** - No unnecessary overhead
+- [ ] **Memory-efficient** - No memory leaks, proper resource management
+- [ ] **Thread-safe** - Proper concurrency handling
+- [ ] **Secure** - No security vulnerabilities
+
+### Rejection Criteria
+
+#### Code Will Be Rejected If:
+- ❌ Not production-ready
+- ❌ Hard to understand or maintain
+- ❌ Difficult to debug (>20 minutes to find bugs)
+- ❌ Doesn't scale to production
+- ❌ Poor error handling
+- ❌ Missing or inadequate tests
+- ❌ Missing documentation
+- ❌ Performance issues
+- ❌ Memory leaks or resource issues
+- ❌ Thread safety issues
+- ❌ Security vulnerabilities
+- ❌ Code smells or anti-patterns
+- ❌ Violates file/function size limits
+- ❌ Doesn't follow OOP principles
+
+## Debuggability Requirements
+
+### ⚠️ CRITICAL: 5-20 Minute Bug Detection Rule
+
+**Every bug must be detectable within 5-20 minutes using standard debugging tools.**
+
+### Debuggability Standards
+
+#### Code Must Be:
+1. **Self-documenting** - Code explains itself without comments
+2. **Well-logged** - Logs at critical points with context
+3. **Traceable** - Request IDs, correlation IDs, transaction IDs
+4. **Instrumented** - Metrics, tracing, profiling hooks
+5. **Testable** - Easy to reproduce bugs in tests
+6. **Observable** - Easy to inspect state and flow
+
+### Debugging Requirements
+
+#### Logging Standards
+```python
+class Worker:
+    """Worker with production-grade logging."""
+    
+    def __init__(self, worker_id: str):
+        self._worker_id = worker_id
+        self._logger = logging.getLogger(__name__)
+        self._logger.info(f"Worker {worker_id} initialized", extra={
+            "worker_id": worker_id,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    
+    def process_task(self, task: Task) -> Result:
+        """Process task with comprehensive logging."""
+        task_id = task.id
+        correlation_id = task.correlation_id
+        
+        self._logger.info(
+            f"Processing task {task_id}",
+            extra={
+                "worker_id": self._worker_id,
+                "task_id": task_id,
+                "correlation_id": correlation_id,
+                "task_type": task.type,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+        
+        try:
+            start_time = time.time()
+            result = self._execute_task(task)
+            elapsed = time.time() - start_time
+            
+            self._logger.info(
+                f"Task {task_id} completed successfully",
+                extra={
+                    "worker_id": self._worker_id,
+                    "task_id": task_id,
+                    "correlation_id": correlation_id,
+                    "elapsed_time": elapsed,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            
+            return result
+            
+        except Exception as e:
+            self._logger.error(
+                f"Task {task_id} failed: {e}",
+                extra={
+                    "worker_id": self._worker_id,
+                    "task_id": task_id,
+                    "correlation_id": correlation_id,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": traceback.format_exc(),
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                exc_info=True
+            )
+            raise
+```
+
+#### Error Context
+```python
+# ✅ Good: Comprehensive error context
+class TaskExecutionError(Exception):
+    """Raised when task execution fails."""
+    
+    def __init__(
+        self,
+        message: str,
+        task_id: str,
+        worker_id: str,
+        correlation_id: str,
+        error_type: str,
+        original_error: Optional[Exception] = None
+    ):
+        super().__init__(message)
+        self.task_id = task_id
+        self.worker_id = worker_id
+        self.correlation_id = correlation_id
+        self.error_type = error_type
+        self.original_error = original_error
+        self.timestamp = datetime.utcnow().isoformat()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary for logging."""
+        return {
+            "message": str(self),
+            "task_id": self.task_id,
+            "worker_id": self.worker_id,
+            "correlation_id": self.correlation_id,
+            "error_type": self.error_type,
+            "timestamp": self.timestamp,
+            "original_error": str(self.original_error) if self.original_error else None
+        }
+
+# ❌ Bad: Minimal error context
+class TaskExecutionError(Exception):
+    """Raised when task execution fails."""
+    pass
+```
+
+### Debugging Tools Integration
+
+#### Must Support:
+- **Standard debugger** - pdb, ipdb, debugpy
+- **Logging** - Structured logging with context
+- **Metrics** - Prometheus, StatsD compatible
+- **Tracing** - OpenTelemetry, distributed tracing
+- **Profiling** - cProfile, py-spy integration
+- **Monitoring** - Health checks, status endpoints
+
+## Production Readiness
+
+### Code Must Be Production-Ready
+
+#### No Exceptions:
+- ❌ **NO TODOs** - All TODOs must be resolved before merge
+- ❌ **NO temporary code** - No "quick fixes" that stay
+- ❌ **NO hacks** - No workarounds, proper solutions only
+- ❌ **NO commented code** - Remove dead code
+- ❌ **NO debug prints** - Use logging instead
+- ❌ **NO hardcoded values** - Use configuration
+- ❌ **NO magic numbers** - Use named constants
+- ❌ **NO silent failures** - All errors must be handled
+
+### Production Code Checklist
+
+#### Before Submitting:
+- [ ] All TODOs resolved or moved to tickets
+- [ ] No temporary code or hacks
+- [ ] No commented-out code
+- [ ] No debug prints (use logging)
+- [ ] No hardcoded values (use config)
+- [ ] No magic numbers (use constants)
+- [ ] All errors handled properly
+- [ ] All edge cases covered
+- [ ] Resource cleanup guaranteed
+- [ ] Memory leaks checked
+- [ ] Performance tested
+- [ ] Security reviewed
+
+## Scalability Requirements
+
+### Production Scale
+
+#### Must Handle:
+- **High throughput** - Thousands of requests per second
+- **Large datasets** - Millions of records
+- **Concurrent users** - Thousands of concurrent connections
+- **Long-running processes** - Hours/days without issues
+- **Resource efficiency** - CPU, memory, I/O optimized
+
+### Scalability Patterns
+
+#### Required Patterns:
+- **Connection pooling** - Reuse connections
+- **Caching** - Reduce redundant operations
+- **Batching** - Process in batches when possible
+- **Streaming** - Handle large datasets in streams
+- **Rate limiting** - Prevent overload
+- **Circuit breakers** - Fail gracefully
+- **Backpressure** - Handle overload gracefully
+
+## Code Maintainability
+
+### ⚠️ CRITICAL: Code Must Be Maintainable
+
+#### Every Engineer Must:
+1. **Understand code immediately** - No explanation needed
+2. **Modify code safely** - Changes are obvious
+3. **Debug code easily** - Find issues in 5-20 minutes
+4. **Test code thoroughly** - All paths covered
+5. **Document code clearly** - Self-documenting + docs
+
+### Maintainability Standards
+
+#### Code Must Be:
+- **Self-documenting** - Code explains itself
+- **Well-structured** - Clear organization
+- **Consistent** - Follows patterns consistently
+- **Modular** - Single responsibility
+- **Testable** - Easy to test
+- **Traceable** - Easy to trace execution
+- **Debuggable** - Easy to debug
+
+## Code Readability
+
+### ⚠️ CRITICAL: Code Must Be Crystal Clear
+
+#### Readability Standards:
+- **Self-documenting** - Code explains itself
+- **Meaningful names** - Names convey intent
+- **Clear structure** - Obvious flow
+- **Consistent style** - Follows conventions
+- **Appropriate abstractions** - Not too high, not too low
+- **No surprises** - Predictable behavior
+
+### Readability Checklist
+
+#### Code Must Be:
+- [ ] Self-documenting (minimal comments needed)
+- [ ] Meaningful names (no abbreviations except well-known)
+- [ ] Clear structure (obvious organization)
+- [ ] Consistent style (follows conventions)
+- [ ] Appropriate abstractions (right level of detail)
+- [ ] No surprises (predictable behavior)
+- [ ] Easy to follow (linear flow preferred)
+- [ ] Well-documented (docstrings for all public APIs)
+
+## Performance Requirements
+
+### Production Performance
+
+#### Must Meet:
+- **Response time** - P95 < 100ms for API endpoints
+- **Throughput** - Handle production load
+- **Resource usage** - Efficient CPU/memory usage
+- **Scalability** - Linear or better scaling
+- **No bottlenecks** - Profile and optimize
+
+### Performance Standards
+
+#### Code Must:
+- **Profile before optimize** - Measure first
+- **Optimize hot paths** - Focus on critical paths
+- **Use efficient algorithms** - O(n log n) or better
+- **Minimize allocations** - Reuse objects when possible
+- **Cache appropriately** - Balance memory vs speed
+- **Avoid premature optimization** - But optimize when needed
+
+## Security Requirements
+
+### Production Security
+
+#### Must Be Secure:
+- **Input validation** - Validate all inputs
+- **Output sanitization** - Sanitize outputs
+- **Authentication** - Proper auth mechanisms
+- **Authorization** - Proper access control
+- **Encryption** - Encrypt sensitive data
+- **Secrets management** - No hardcoded secrets
+- **Dependency security** - Keep dependencies updated
+- **Vulnerability scanning** - Regular security audits
+
+## Testing Requirements
+
+### Test Coverage
+
+#### Must Have:
+- **Unit tests** - All functions tested
+- **Integration tests** - All integrations tested
+- **End-to-end tests** - Critical paths tested
+- **Performance tests** - Performance benchmarks
+- **Stress tests** - Load testing
+- **Security tests** - Security testing
+
+### Test Quality Standards
+
+#### Tests Must:
+- **Be fast** - Unit tests < 1 second
+- **Be isolated** - No dependencies between tests
+- **Be deterministic** - Same input = same output
+- **Be comprehensive** - Cover all paths
+- **Be maintainable** - Easy to update
+- **Be readable** - Clear test intent
+
+## Code Review Questions
+
+### Ask Yourself:
+1. **Would a Principal Engineer approve this?**
+2. **Is this production-ready?**
+3. **Can a new engineer understand this in 5 minutes?**
+4. **Can a bug be found in 5-20 minutes?**
+5. **Does this scale to production?**
+6. **Is this maintainable for 5+ years?**
+7. **Is this secure?**
+8. **Is this performant?**
+9. **Is this testable?**
+10. **Would I be proud to show this code?**
+
+### If Answer is "No" to Any:
+**Refactor until "Yes" to all questions.**
+
+## Final Reminder
+
+### ⚠️ CRITICAL REMINDER
+
+**Every line of code will be reviewed by Principal Engineers.**
+**Code must be production-ready.**
+**Code must be maintainable.**
+**Code must be debuggable (5-20 minutes max).**
+**Code must scale to production.**
+
+**If you're not sure, ask yourself: "Would a Principal Engineer approve this?"**
+
+**If the answer is "No", refactor until it's "Yes".**
+

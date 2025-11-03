@@ -1,38 +1,50 @@
-pip install bcrypt==4.0.1 cryptography fastapi psycopg2-binary PyMySQL python-jose python-multipart SQLAlchemy uvicorn passlib pytest httpx pytest-asyncio aiofiles jinja2
+# Python Concurrency & Parallelism Learning Project
 
+A comprehensive learning repository for mastering Python concurrency and parallelism concepts at the SDE-3 / DevOps / Low-Level Systems Engineer level.
 
-# Project 3/TodoApp/routers/__init__.py
+## Repository Structure
 
-This file is used to mark the directory (i.e. routers) as a Python package.
-It allows you to import modules from this folder.
-No code is needed inside unless you want to run package-level setup code.
-In this project, it’s just a placeholder so Python knows this is a package.
+This is a monorepo containing:
 
-# Project 3/TodoApp/__init__.py
+- **`project/`** - Main learning project with comprehensive examples, exercises, and real-world scenarios
+- **`references/`** - External reference materials from other repositories, libraries, and learning resources
 
-This is file tells Python that this directory is a package.
-# It can be left empty if you don't need to run any setup code.
-# In this project, it's just a placeholder so you can import modules from 
+## Navigation
 
+### Main Project
+Navigate to [`project/`](./project/) for the main learning content, including:
+- Core concepts and implementations
+- Working examples
+- Progressive exercises
+- Performance benchmarks
+- Real-world applications
 
-pip install bcrypt==4.0.1 cryptography fastapi psycopg2-binary PyMySQL python-jose python-multipart SQLAlchemy uvicorn passlib pytest httpx pytest-asyncio aiofiles jinja2
+### References
+The [`references/`](./references/) directory contains external reference materials used for guidance and inspiration. See the [references README](./references/README.md) for more details.
 
+## Getting Started
 
-# Project 3/TodoApp/routers/__init__.py
+1. Navigate to the `project/` directory
+2. Review the [project README](./project/README.md) for learning path and structure
+3. Set up your virtual environment:
+   ```bash
+   cd project
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-This file is used to mark the directory (i.e. routers) as a Python package.
-It allows you to import modules from this folder.
-No code is needed inside unless you want to run package-level setup code.
-In this project, it’s just a placeholder so Python knows this is a package.
+## Learning Path
 
-# Project 3/TodoApp/__init__.py
+The project is organized to cover:
+- Threading fundamentals and advanced patterns
+- Multiprocessing and inter-process communication
+- Asyncio and event-driven programming
+- Concurrent.futures patterns
+- GIL deep dive and implications
+- Synchronization primitives
+- Performance profiling and optimization
+- Real-world distributed systems patterns
 
-This is file tells Python that this directory is a package.
-# It can be left empty if you don't need to run any setup code.
-# In this project, it's just a placeholder so you can import modules from 
+Start with the core concepts in `project/core/` and work through examples and exercises progressively.
 
-# To run the latest project i.e. Project 5
-
-1. Actiavte venv and then cd /home/pallab/Downloads/<project_directory>/Project\ 5
-
-2. uvicorn TodoApp.main:app --reload (and then it will run at http://127.0.0.1:8000, swagger: http://127.0.0.1:8000/docs)

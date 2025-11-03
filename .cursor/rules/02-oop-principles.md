@@ -1,0 +1,195 @@
+# Object-Oriented Programming Principles
+
+## MANDATORY: All code MUST follow OOP principles
+
+### Core OOP Requirements
+
+#### 1. Use Classes for All Functionality
+- **NO standalone functions** unless they're simple utilities
+- **Group related functionality** into classes
+- **Use composition** to organize complex behavior
+
+#### 2. SOLID Principles (MANDATORY)
+
+##### Single Responsibility Principle (SRP)
+- Each class has **ONE reason to change**
+- Each class does **ONE thing well**
+- If a class has multiple responsibilities, split it
+
+##### Open/Closed Principle (OCP)
+- Open for extension, closed for modification
+- Use inheritance and composition for extension
+- Avoid modifying existing classes
+
+##### Liskov Substitution Principle (LSP)
+- Subtypes must be substitutable for base types
+- Derived classes must not break base class contracts
+- Interfaces must be properly implemented
+
+##### Interface Segregation Principle (ISP)
+- No client should depend on unused methods
+- Create focused interfaces
+- Avoid fat interfaces
+
+##### Dependency Inversion Principle (DIP)
+- Depend on abstractions, not concretions
+- Use interfaces and abstract base classes
+- Inject dependencies
+
+### Class Structure Requirements
+
+#### Maximum Class Size
+- **200 lines total** per class
+- **7 methods maximum** per class (excluding getters/setters)
+- If exceeding, split into multiple classes
+
+#### Class Organization
+```python
+class ExampleClass:
+    """Class docstring."""
+    
+    # Constants
+    MAX_SIZE = 100
+    DEFAULT_TIMEOUT = 30
+    
+    def __init__(self, param: str):
+        """Initialize class."""
+        self._private_attr: str = param
+        self._logger = logging.getLogger(__name__)
+    
+    # Public methods
+    def public_method(self, arg: int) -> bool:
+        """Public method docstring."""
+        pass
+    
+    # Private methods
+    def _private_method(self, data: str) -> None:
+        """Private method docstring."""
+        pass
+```
+
+### Encapsulation
+
+#### Private Attributes
+- Use single underscore prefix: `_private_attr`
+- Access only through public methods
+- Use properties for controlled access
+
+#### Public Interface
+- Keep public methods minimal
+- Expose only necessary functionality
+- Hide implementation details
+
+### Composition Over Inheritance
+
+#### Prefer Composition
+```python
+# ✅ Good: Composition
+class Worker:
+    def __init__(self):
+        self._logger = Logger()
+        self._validator = Validator()
+
+# ❌ Bad: Deep inheritance
+class Worker(Logger, Validator, Processor):
+    pass
+```
+
+### Design Patterns
+
+#### Factory Pattern
+- Use for object creation
+- Centralize creation logic
+- Support different implementations
+
+#### Strategy Pattern
+- Use for algorithm selection
+- Encapsulate algorithms
+- Make algorithms interchangeable
+
+#### Observer Pattern
+- Use for event handling
+- Decouple event sources and handlers
+- Support multiple observers
+
+### Abstraction
+
+#### Abstract Base Classes
+```python
+from abc import ABC, abstractmethod
+
+class TaskExecutor(ABC):
+    """Abstract base class for task executors."""
+    
+    @abstractmethod
+    def execute(self, task: Task) -> Result:
+        """Execute a task."""
+        pass
+    
+    @abstractmethod
+    def shutdown(self) -> None:
+        """Shutdown executor."""
+        pass
+```
+
+### Dependency Injection
+
+#### Constructor Injection
+```python
+class Worker:
+    def __init__(self, logger: Logger, validator: Validator):
+        self._logger = logger
+        self._validator = validator
+```
+
+#### Method Injection
+```python
+def process(self, item: Item, formatter: Formatter) -> Result:
+    """Process item with injected formatter."""
+    formatted = formatter.format(item)
+    return self._process_formatted(formatted)
+```
+
+### Examples
+
+#### Bad: Procedural Code
+```python
+# ❌ No OOP structure
+def process_data(data):
+    results = []
+    for item in data:
+        if validate(item):
+            transformed = transform(item)
+            results.append(transformed)
+    return results
+```
+
+#### Good: OOP Structure
+```python
+# ✅ Proper OOP structure
+class DataProcessor:
+    """Processes data items with validation and transformation."""
+    
+    def __init__(self, validator: Validator, transformer: Transformer):
+        self._validator = validator
+        self._transformer = transformer
+        self._logger = logging.getLogger(__name__)
+    
+    def process(self, data: List[Item]) -> List[Item]:
+        """Process list of items."""
+        results = []
+        for item in data:
+            if self._is_valid(item):
+                processed = self._transform(item)
+                results.append(processed)
+        return results
+    
+    def _is_valid(self, item: Item) -> bool:
+        """Check if item is valid."""
+        return self._validator.validate(item)
+    
+    def _transform(self, item: Item) -> Item:
+        """Transform item."""
+        return self._transformer.transform(item)
+```
+

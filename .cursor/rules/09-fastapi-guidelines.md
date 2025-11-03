@@ -1,0 +1,400 @@
+# FastAPI Guidelines
+
+## Framework Context
+
+This project uses either **vanilla Python** or **FastAPI** for implementations. When using FastAPI, follow these additional guidelines.
+
+## FastAPI Best Practices
+
+### Project Structure
+
+#### Recommended Structure
+```
+project/
+├── api/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app instance
+│   ├── dependencies.py      # Dependency injection
+│   ├── routes/              # API routes
+│   │   ├── __init__.py
+│   │   ├── threading.py
+│   │   ├── multiprocessing.py
+│   │   └── asyncio.py
+│   └── schemas/             # Pydantic models
+│       ├── __init__.py
+│       ├── requests.py
+│       └── responses.py
+├── core/                    # Core business logic
+├── services/                # Service layer
+└── utils/                   # Utilities
+```
+
+### API Route Organization
+
+#### Route Classes
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+from pydantic import BaseModel
+
+from api.schemas.requests import ThreadPoolRequest
+from api.schemas.responses import ThreadPoolResponse
+from core.threading import ThreadPoolManager
+
+router = APIRouter(prefix="/api/v1/threading", tags=["threading"])
+
+
+class ThreadPoolController:
+    """Controller for thread pool operations."""
+    
+    def __init__(self, manager: ThreadPoolManager):
+        self._manager = manager
+        self._logger = logging.getLogger(__name__)
+    
+    @router.post("/pools", response_model=ThreadPoolResponse)
+    async def create_pool(self, request: ThreadPoolRequest) -> ThreadPoolResponse:
+        """Create a new thread pool.
+        
+        Args:
+            request: Thread pool configuration.
+        
+        Returns:
+            Created thread pool information.
+        
+        Raises:
+            HTTPException: If pool creation fails.
+        """
+        try:
+            pool = await self._manager.create_pool(
+                max_workers=request.max_workers,
+                timeout=request.timeout
+            )
+            return ThreadPoolResponse.from_pool(pool)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+```
+
+### Pydantic Models
+
+#### Request Models
+```python
+from pydantic import BaseModel, Field, validator
+from typing import Optional
+
+class ThreadPoolRequest(BaseModel):
+    """Request model for thread pool creation."""
+    
+    max_workers: int = Field(..., ge=1, le=100, description="Maximum number of workers")
+    timeout: Optional[float] = Field(None, gt=0, description="Timeout in seconds")
+    
+    @validator("max_workers")
+    def validate_max_workers(cls, v: int) -> int:
+        """Validate max workers."""
+        if v < 1:
+            raise ValueError("max_workers must be at least 1")
+        if v > 100:
+            raise ValueError("max_workers cannot exceed 100")
+        return v
+    
+    class Config:
+        """Pydantic configuration."""
+        json_schema_extra = {
+            "example": {
+                "max_workers": 4,
+                "timeout": 30.0
+            }
+        }
+```
+
+#### Response Models
+```python
+from pydantic import BaseModel
+from datetime import datetime
+
+class ThreadPoolResponse(BaseModel):
+    """Response model for thread pool information."""
+    
+    pool_id: str
+    max_workers: int
+    active_workers: int
+    created_at: datetime
+    
+    @classmethod
+    def from_pool(cls, pool: ThreadPool) -> "ThreadPoolResponse":
+        """Create response from pool object."""
+        return cls(
+            pool_id=pool.id,
+            max_workers=pool.max_workers,
+            active_workers=pool.active_workers,
+            created_at=pool.created_at
+        )
+```
+
+### Dependency Injection
+
+#### Dependency Functions
+```python
+from fastapi import Depends
+from typing import Annotated
+
+from core.threading import ThreadPoolManager
+
+async def get_thread_pool_manager() -> ThreadPoolManager:
+    """Get thread pool manager instance."""
+    return ThreadPoolManager()
+
+ThreadPoolManagerDep = Annotated[ThreadPoolManager, Depends(get_thread_pool_manager)]
+
+# Usage
+@router.post("/pools")
+async def create_pool(
+    request: ThreadPoolRequest,
+    manager: ThreadPoolManagerDep
+) -> ThreadPoolResponse:
+    """Create thread pool with dependency injection."""
+    pool = await manager.create_pool(
+        max_workers=request.max_workers,
+        timeout=request.timeout
+    )
+    return ThreadPoolResponse.from_pool(pool)
+```
+
+### Error Handling
+
+#### Custom Exception Handlers
+```python
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+
+app = FastAPI()
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    """Handle ValueError exceptions."""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": str(exc)}
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request,
+    exc: RequestValidationError
+) -> JSONResponse:
+    """Handle validation errors."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()}
+    )
+```
+
+### Async Route Handlers
+
+#### Async Best Practices
+```python
+from fastapi import APIRouter
+import asyncio
+
+router = APIRouter()
+
+@router.post("/tasks")
+async def submit_task(request: TaskRequest) -> TaskResponse:
+    """Submit task for execution (async)."""
+    # Use async for I/O-bound operations
+    result = await process_task_async(request.task_data)
+    return TaskResponse(result=result)
+
+@router.post("/tasks/cpu-bound")
+def process_cpu_task(request: TaskRequest) -> TaskResponse:
+    """Process CPU-bound task (sync).
+    
+    Note: CPU-bound tasks should use sync functions
+    or run in thread/process pools to avoid blocking.
+    """
+    result = process_task_sync(request.task_data)
+    return TaskResponse(result=result)
+```
+
+### Background Tasks
+
+#### Background Task Execution
+```python
+from fastapi import BackgroundTasks
+from typing import List
+
+@router.post("/tasks/async")
+async def submit_background_task(
+    request: TaskRequest,
+    background_tasks: BackgroundTasks
+) -> TaskResponse:
+    """Submit task for background execution."""
+    task_id = generate_task_id()
+    
+    background_tasks.add_task(
+        process_task_background,
+        task_id=task_id,
+        task_data=request.task_data
+    )
+    
+    return TaskResponse(
+        task_id=task_id,
+        status="submitted"
+    )
+```
+
+### Testing FastAPI
+
+#### Test Client Setup
+```python
+from fastapi.testclient import TestClient
+from api.main import app
+
+client = TestClient(app)
+
+def test_create_thread_pool():
+    """Test thread pool creation."""
+    response = client.post(
+        "/api/v1/threading/pools",
+        json={
+            "max_workers": 4,
+            "timeout": 30.0
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["max_workers"] == 4
+    assert "pool_id" in data
+```
+
+### Documentation
+
+#### OpenAPI Documentation
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI(
+    title="Python Concurrency API",
+    description="API for Python concurrency and parallelism examples",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+def custom_openapi():
+    """Custom OpenAPI schema."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+```
+
+### File Size Limits
+
+#### FastAPI Route Files
+- **Maximum**: 200 lines per route file
+- **Split routes** by domain/resource
+- **Use controllers** for business logic
+- **Keep routes thin** - delegate to services
+
+#### Example: Large Route File Split
+```python
+# ❌ Bad: routes/threading.py (300 lines)
+# Too large, violates file size limit
+
+# ✅ Good: Split into multiple files
+# routes/threading/pools.py (150 lines)
+# routes/threading/tasks.py (150 lines)
+# routes/threading/workers.py (100 lines)
+```
+
+### Type Hints for FastAPI
+
+#### Route Handler Type Hints
+```python
+from fastapi import APIRouter, Depends
+from typing import List, Optional
+from pydantic import BaseModel
+
+router = APIRouter()
+
+@router.post("/pools", response_model=ThreadPoolResponse)
+async def create_pool(
+    request: ThreadPoolRequest,
+    manager: ThreadPoolManager = Depends(get_thread_pool_manager)
+) -> ThreadPoolResponse:
+    """Create thread pool with proper type hints."""
+    # Implementation
+    pass
+```
+
+### Best Practices
+
+#### Do's
+- ✅ Use Pydantic models for request/response validation
+- ✅ Use dependency injection for services
+- ✅ Use async for I/O-bound operations
+- ✅ Use sync or background tasks for CPU-bound operations
+- ✅ Document all endpoints with docstrings
+- ✅ Use proper HTTP status codes
+- ✅ Handle errors gracefully
+- ✅ Keep route handlers thin
+- ✅ Use service layer for business logic
+
+#### Don'ts
+- ❌ Don't put business logic in route handlers
+- ❌ Don't use sync functions for I/O-bound operations
+- ❌ Don't block the event loop
+- ❌ Don't skip input validation
+- ❌ Don't expose internal errors
+- ❌ Don't create files over 200 lines
+- ❌ Don't create route handlers over 50 lines
+
+### Vanilla Python vs FastAPI
+
+#### When to Use FastAPI
+- Building REST APIs
+- Need automatic OpenAPI documentation
+- Async web operations
+- Type validation with Pydantic
+- Dependency injection needs
+
+#### When to Use Vanilla Python
+- CLI applications
+- Scripts and utilities
+- Core business logic
+- Library code
+- Background workers
+
+### File Organization
+
+#### Mixing FastAPI and Vanilla Python
+```
+project/
+├── api/                     # FastAPI routes and schemas
+│   ├── routes/
+│   └── schemas/
+├── core/                    # Vanilla Python core logic
+│   ├── threading/
+│   ├── multiprocessing/
+│   └── asyncio/
+└── services/                # Service layer (can be used by both)
+    ├── threading_service.py
+    └── multiprocessing_service.py
+```
+
+This structure allows:
+- FastAPI routes to use vanilla Python core logic
+- Core logic to be reusable without FastAPI
+- Clear separation of concerns
+

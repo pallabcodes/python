@@ -1,0 +1,286 @@
+# Concurrency-Specific Guidelines
+
+## Thread Safety and Synchronization
+
+### Thread Safety Documentation
+
+#### Document Thread-Safety Guarantees
+```python
+class ThreadSafeQueue:
+    """Thread-safe queue implementation.
+    
+    This class is thread-safe and can be safely used from multiple
+    threads concurrently. All operations are atomic and protected
+    by internal locks.
+    
+    Thread Safety:
+        - All public methods are thread-safe.
+        - Multiple threads can safely call push() and pop().
+        - Iteration is not thread-safe.
+    """
+    
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._items = []
+    
+    def push(self, item: Any) -> None:
+        """Push item to queue (thread-safe)."""
+        with self._lock:
+            self._items.append(item)
+    
+    def pop(self) -> Optional[Any]:
+        """Pop item from queue (thread-safe)."""
+        with self._lock:
+            return self._items.pop(0) if self._items else None
+```
+
+### Lock Usage
+
+#### Use Locks Explicitly
+```python
+# ✅ Good
+class Counter:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._value = 0
+    
+    def increment(self) -> None:
+        """Increment counter (thread-safe)."""
+        with self._lock:
+            self._value += 1
+    
+    def get_value(self) -> int:
+        """Get counter value (thread-safe)."""
+        with self._lock:
+            return self._value
+
+# ❌ Bad
+class Counter:
+    def __init__(self):
+        self._value = 0  # Not thread-safe
+    
+    def increment(self) -> None:
+        self._value += 1  # Race condition
+```
+
+### Thread-Safe Data Structures
+
+#### Prefer Queue Module
+```python
+# ✅ Good
+from queue import Queue
+
+class WorkerPool:
+    def __init__(self):
+        self._task_queue: Queue[Task] = Queue()
+        self._result_queue: Queue[Result] = Queue()
+    
+    def submit_task(self, task: Task) -> None:
+        """Submit task to queue (thread-safe)."""
+        self._task_queue.put(task)
+    
+    def get_result(self) -> Result:
+        """Get result from queue (thread-safe)."""
+        return self._result_queue.get()
+
+# ❌ Bad
+class WorkerPool:
+    def __init__(self):
+        self._tasks = []  # Not thread-safe
+    
+    def submit_task(self, task: Task) -> None:
+        self._tasks.append(task)  # Race condition
+```
+
+### Avoid Shared Mutable State
+
+#### Use Immutable Data
+```python
+# ✅ Good
+from dataclasses import dataclass
+from typing import FrozenSet
+
+@dataclass(frozen=True)
+class Task:
+    """Immutable task representation."""
+    id: str
+    data: FrozenSet[str]
+
+def process_task(task: Task) -> Result:
+    """Process immutable task."""
+    # task is immutable, safe to share
+    pass
+
+# ❌ Bad
+class Task:
+    def __init__(self, id: str, data: List[str]):
+        self.id = id
+        self.data = data  # Mutable, unsafe to share
+```
+
+### Resource Management
+
+#### Context Managers for Resources
+```python
+# ✅ Good
+class ThreadPool:
+    def __enter__(self):
+        """Enter context manager."""
+        self.start()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and cleanup."""
+        self.shutdown(wait=True)
+        return False
+
+# Usage
+with ThreadPool(max_workers=4) as pool:
+    future = pool.submit(task)
+    result = future.result()
+
+# ❌ Bad
+pool = ThreadPool(max_workers=4)
+future = pool.submit(task)
+result = future.result()
+# Forgot to shutdown - resource leak
+```
+
+### Async Resource Management
+
+#### Async Context Managers
+```python
+# ✅ Good
+class AsyncResource:
+    async def __aenter__(self):
+        """Enter async context manager."""
+        await self._acquire()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit async context manager and cleanup."""
+        await self._release()
+        return False
+
+# Usage
+async def process_data():
+    async with AsyncResource() as resource:
+        result = await resource.process()
+    # Resource automatically released
+```
+
+### Deadlock Prevention
+
+#### Lock Ordering
+```python
+# ✅ Good
+class SafeProcessor:
+    def __init__(self):
+        self._lock1 = threading.Lock()
+        self._lock2 = threading.Lock()
+    
+    def process(self, data: Data) -> Result:
+        """Process with consistent lock ordering."""
+        # Always acquire locks in same order
+        with self._lock1:
+            with self._lock2:
+                return self._do_process(data)
+    
+    def process_other(self, data: Data) -> Result:
+        """Process with same lock ordering."""
+        with self._lock1:  # Same order as process()
+            with self._lock2:
+                return self._do_process_other(data)
+
+# ❌ Bad
+class UnsafeProcessor:
+    def __init__(self):
+        self._lock1 = threading.Lock()
+        self._lock2 = threading.Lock()
+    
+    def process(self, data: Data) -> Result:
+        with self._lock1:
+            with self._lock2:  # Order: 1, 2
+                return self._do_process(data)
+    
+    def process_other(self, data: Data) -> Result:
+        with self._lock2:
+            with self._lock1:  # Order: 2, 1 - Deadlock risk!
+                return self._do_process_other(data)
+```
+
+### Timeout Handling
+
+#### Use Timeouts for All Blocking Operations
+```python
+# ✅ Good
+def process_with_timeout(self, task: Task, timeout: float = 30.0) -> Result:
+    """Process task with timeout."""
+    try:
+        with self._lock:
+            return self._process_task(task)
+    except Exception as e:
+        if isinstance(e, TimeoutError):
+            self._logger.error(f"Task {task.id} timed out after {timeout}s")
+            raise TaskTimeoutError(f"Task {task.id} timed out") from e
+        raise
+
+# ✅ Good (with timeout)
+def wait_for_result(self, future: Future, timeout: float = 30.0) -> Result:
+    """Wait for result with timeout."""
+    try:
+        return future.result(timeout=timeout)
+    except TimeoutError as e:
+        self._logger.error(f"Result timeout after {timeout}s")
+        raise
+```
+
+### Concurrency Patterns
+
+#### Producer-Consumer Pattern
+```python
+# ✅ Good
+class ProducerConsumer:
+    def __init__(self, queue_size: int = 10):
+        self._queue: Queue[Item] = Queue(maxsize=queue_size)
+        self._stop_event = threading.Event()
+    
+    def producer(self) -> None:
+        """Producer thread."""
+        while not self._stop_event.is_set():
+            item = self._generate_item()
+            try:
+                self._queue.put(item, timeout=1.0)
+            except queue.Full:
+                self._logger.warning("Queue full, dropping item")
+    
+    def consumer(self) -> None:
+        """Consumer thread."""
+        while not self._stop_event.is_set():
+            try:
+                item = self._queue.get(timeout=1.0)
+                self._process_item(item)
+                self._queue.task_done()
+            except queue.Empty:
+                continue
+```
+
+### Best Practices
+
+#### Do's
+- ✅ Document thread-safety guarantees
+- ✅ Use locks explicitly when needed
+- ✅ Prefer thread-safe data structures
+- ✅ Use context managers for resources
+- ✅ Use timeouts for blocking operations
+- ✅ Maintain consistent lock ordering
+- ✅ Avoid shared mutable state
+
+#### Don'ts
+- ❌ Don't assume thread-safety without documentation
+- ❌ Don't use mutable shared state without protection
+- ❌ Don't forget to release resources
+- ❌ Don't ignore timeout errors
+- ❌ Don't create deadlocks with inconsistent lock ordering
+- ❌ Don't use bare threading without synchronization
+

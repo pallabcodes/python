@@ -1,0 +1,129 @@
+# File Size Enforcement Rules
+
+## CRITICAL: These rules MUST be enforced for ALL code generation
+
+### Context: Google Production Standards
+This code will be reviewed by **Principal Engineers** and must meet **Google SDE-3 level** production standards. Every line will be scrutinized. File size limits are critical for:
+- **Debuggability**: Bugs must be detectable in 5 minutes (standard), 20 minutes (maximum)
+- **Maintainability**: Code must be maintainable at enterprise scale
+- **Code Review**: Principal Engineers will review every line
+
+### Absolute Maximum Limits
+- **FILE MAXIMUM: 200 lines** - NO EXCEPTIONS
+- **FUNCTION MAXIMUM: 50 lines** - NO EXCEPTIONS
+- **CLASS MAXIMUM: 200 lines total** - NO EXCEPTIONS
+
+### Enforcement Rules
+
+#### Before Writing Any Code
+1. **ALWAYS check file size before adding new code**
+2. **If file exceeds 150 lines, STOP and split it**
+3. **If function exceeds 40 lines, STOP and refactor it**
+4. **NEVER create files larger than 200 lines**
+5. **NEVER create functions larger than 50 lines**
+
+#### When File Approaches Limit
+If a file is approaching 150 lines:
+- **MUST split into multiple files**
+- **MUST create separate modules**
+- **MUST use composition to organize code**
+
+#### When Function Approaches Limit
+If a function is approaching 40 lines:
+- **MUST extract helper methods**
+- **MUST break into smaller functions**
+- **MUST use private methods for complex logic**
+
+### Refactoring Triggers
+
+#### Automatic Refactoring Required When:
+- File reaches 150 lines → Split immediately
+- Function reaches 40 lines → Refactor immediately
+- Class has more than 7 methods → Split into multiple classes
+
+#### Prohibited Patterns
+- ❌ **DO NOT** create files over 200 lines
+- ❌ **DO NOT** create functions over 50 lines
+- ❌ **DO NOT** add more code to a file that's already 150+ lines
+- ❌ **DO NOT** add more code to a function that's already 40+ lines
+- ❌ **DO NOT** create monolithic classes with 10+ methods
+
+### Required Actions
+
+#### If You See a File Over 200 Lines
+1. **STOP immediately**
+2. **Split the file into logical modules**
+3. **Create separate files for different concerns**
+4. **Use imports to connect related modules**
+
+#### If You See a Function Over 50 Lines
+1. **STOP immediately**
+2. **Extract helper methods**
+3. **Break into smaller, focused functions**
+4. **Use private methods for implementation details**
+
+### Code Review Checklist
+Before submitting ANY code:
+- [ ] File is under 200 lines
+- [ ] All functions are under 50 lines
+- [ ] Class is under 200 lines total
+- [ ] No single function exceeds 40 lines
+- [ ] No file exceeds 150 lines (preferred maximum)
+
+### Examples of Required Refactoring
+
+#### Bad: File Too Large (300 lines)
+```python
+# ❌ This file is 300 lines - MUST be split
+class BigClass:
+    # ... 300 lines of code ...
+```
+
+#### Good: Split into Multiple Files
+```python
+# ✅ File 1: base.py (150 lines)
+class BaseClass:
+    # Core functionality
+
+# ✅ File 2: extended.py (150 lines)
+class ExtendedClass(BaseClass):
+    # Extended functionality
+
+# ✅ File 3: helpers.py (100 lines)
+class HelperClass:
+    # Helper utilities
+```
+
+#### Bad: Function Too Large (80 lines)
+```python
+# ❌ This function is 80 lines - MUST be refactored
+def process_data(data):
+    # ... 80 lines of code ...
+```
+
+#### Good: Split into Smaller Functions
+```python
+# ✅ Main function (30 lines)
+def process_data(data: List[Dict]) -> List[Dict]:
+    """Process data using helper methods."""
+    validated = _validate_data(data)
+    transformed = _transform_data(validated)
+    return _finalize_data(transformed)
+
+# ✅ Helper methods (each under 20 lines)
+def _validate_data(data: List[Dict]) -> List[Dict]:
+    """Validate input data."""
+    # ... validation logic ...
+
+def _transform_data(data: List[Dict]) -> List[Dict]:
+    """Transform validated data."""
+    # ... transformation logic ...
+
+def _finalize_data(data: List[Dict]) -> List[Dict]:
+    """Finalize processed data."""
+    # ... finalization logic ...
+```
+
+### Reminder
+**If you're about to write code that would exceed these limits, STOP and refactor first. It's better to have multiple small, clear files than one large, unmaintainable file.**
+

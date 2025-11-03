@@ -1,0 +1,93 @@
+# Cursor Rules Directory
+
+This directory contains all coding standards and rules for the Python Concurrency & Parallelism project.
+
+## Rule Files
+
+Rules are organized into focused files for better maintainability:
+
+### ⚠️ CRITICAL: Read These First
+
+1. **`00-google-production-standards.md`** - ⚠️⚠️⚠️ **READ THIS FIRST** ⚠️⚠️⚠️
+   - Google SDE-3 production code standards
+   - Principal Engineer review criteria
+   - **Debuggability requirement: 5-20 minutes max**
+   - Production readiness standards
+   - Code review checklist
+   - **Every line will be reviewed by Principal Engineers**
+   - **Code must be production-ready, no exceptions**
+
+2. **`01-file-size-enforcement.md`** - ⚠️ **READ THIS SECOND**
+   - Absolute maximum file size: 200 lines
+   - Absolute maximum function size: 50 lines
+   - Enforcement rules and refactoring triggers
+   - **This rule MUST be enforced for ALL code generation**
+
+3. **`02-oop-principles.md`**
+   - SOLID principles (mandatory)
+   - Class structure requirements
+   - Encapsulation guidelines
+   - Design patterns
+
+4. **`03-naming-conventions.md`**
+   - Class, function, and variable naming
+   - Constants and type aliases
+   - Module and package naming
+
+5. **`04-type-hints.md`**
+   - Mandatory type hints for all functions
+   - Class attribute typing
+   - Complex type annotations
+
+6. **`05-documentation.md`**
+   - Google-style docstrings (mandatory)
+   - Class and function documentation
+   - Module documentation
+
+7. **`06-error-handling.md`**
+   - Exception handling patterns
+   - Custom exceptions
+   - Error logging and context
+
+8. **`07-concurrency-guidelines.md`**
+   - Thread safety documentation
+   - Resource management
+   - Concurrency patterns
+
+9. **`08-conventional-commits.md`**
+   - Conventional commits specification
+   - Commit message standards
+   - Commit types and formats
+
+10. **`09-fastapi-guidelines.md`**
+   - FastAPI best practices
+   - Route organization
+   - Pydantic models
+   - Dependency injection
+
+## Usage
+
+Cursor automatically reads all `.md` files in this directory. The rules are applied to all code generation and suggestions.
+
+## Enforcement Priority
+
+1. **Google Production Standards** - ⚠️⚠️⚠️ **HIGHEST PRIORITY** ⚠️⚠️⚠️
+   - Principal Engineer review criteria
+   - **Debuggability: 5-20 minutes max** (5 min standard, 20 min max)
+   - Production readiness standards
+   - **Every line reviewed by Principal Engineers**
+   - Code must be production-ready, no exceptions
+2. **File Size Limits** - Highest priority, no exceptions
+3. **OOP Principles** - Mandatory for all code
+4. **Type Hints** - Required for all functions
+5. **Documentation** - Required for all classes and functions
+6. **Naming Conventions** - Must be followed
+7. **Error Handling** - Proper patterns required
+8. **Concurrency Guidelines** - Specific to concurrent code
+
+## Important Notes
+
+- **File size limits are NON-NEGOTIABLE** - If code would exceed limits, refactor first
+- **All rules are mandatory** - No exceptions without explicit approval
+- **Code must be maintainable** - Future engineers must be able to understand and debug easily
+

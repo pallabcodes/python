@@ -1,0 +1,219 @@
+# Naming Conventions
+
+## Mandatory Naming Standards
+
+### Classes
+- **PascalCase**: `ThreadPool`, `ProcessManager`, `AsyncExecutor`
+- **Descriptive names**: `WorkerPool` not `Pool`, `ThreadSynchronizer` not `Sync`
+- **Noun forms**: Represent entities or concepts
+
+#### Examples
+```python
+# ✅ Good
+class ThreadPool:
+    pass
+
+class ProcessManager:
+    pass
+
+class AsyncTaskExecutor:
+    pass
+
+# ❌ Bad
+class pool:
+    pass
+
+class Sync:
+    pass
+
+class executor:
+    pass
+```
+
+### Functions and Methods
+- **snake_case**: `create_thread`, `process_data`, `handle_request`
+- **Verb forms**: Start with action verbs
+- **Specific names**: `calculate_total_time` not `calc`, `process_user_data` not `proc`
+
+#### Examples
+```python
+# ✅ Good
+def create_thread_pool(max_workers: int) -> ThreadPool:
+    pass
+
+def process_user_data(data: Dict) -> Result:
+    pass
+
+def calculate_total_execution_time(tasks: List[Task]) -> float:
+    pass
+
+# ❌ Bad
+def createPool():
+    pass
+
+def proc(data):
+    pass
+
+def calc():
+    pass
+```
+
+### Variables
+- **snake_case**: `thread_count`, `max_workers`, `result_data`
+- **Descriptive names**: `worker_thread` not `wt`, `execution_time` not `et`
+- **Avoid single letters** except for loop counters: `i`, `j`, `k` in loops only
+
+#### Examples
+```python
+# ✅ Good
+thread_count = 10
+max_workers = 4
+execution_time = 0.5
+worker_thread = Thread()
+
+for item in items:
+    process(item)
+
+# ❌ Bad
+tc = 10
+mw = 4
+et = 0.5
+wt = Thread()
+
+for i in items:  # Use 'item' not 'i' for clarity
+    process(i)
+```
+
+### Private Attributes
+- **Single underscore prefix**: `_private_attr`, `_internal_state`
+- **Double underscore sparingly**: Only for name mangling when necessary
+
+#### Examples
+```python
+# ✅ Good
+class Worker:
+    def __init__(self):
+        self._worker_id: str = "worker-1"
+        self._internal_state: Dict = {}
+        self._logger = logging.getLogger(__name__)
+
+# ❌ Bad
+class Worker:
+    def __init__(self):
+        self.worker_id = "worker-1"  # Should be private
+        self.__secret = "secret"  # Unnecessary name mangling
+```
+
+### Constants
+- **UPPER_SNAKE_CASE**: `MAX_THREADS`, `DEFAULT_TIMEOUT`, `API_BASE_URL`
+- **Module-level only**: Constants should be at module or class level
+
+#### Examples
+```python
+# ✅ Good
+MAX_THREADS = 10
+DEFAULT_TIMEOUT = 30.0
+API_BASE_URL = "https://api.example.com"
+
+class ThreadPool:
+    MAX_WORKERS = 10
+    DEFAULT_TIMEOUT = 30.0
+
+# ❌ Bad
+maxThreads = 10
+default_timeout = 30.0
+apiBaseUrl = "https://api.example.com"
+```
+
+### Type Aliases
+- **PascalCase**: `Result`, `Config`, `TaskList`
+- **Descriptive**: Represent the type being aliased
+
+#### Examples
+```python
+# ✅ Good
+from typing import Dict, List
+
+Result = Dict[str, Any]
+Config = Dict[str, str]
+TaskList = List[Task]
+
+# ❌ Bad
+result = Dict[str, Any]
+config = Dict[str, str]
+tasks = List[Task]
+```
+
+### Module Names
+- **snake_case**: `thread_pool.py`, `process_manager.py`
+- **Lowercase**: All lowercase with underscores
+- **Descriptive**: Match the main class or functionality
+
+#### Examples
+```python
+# ✅ Good
+thread_pool.py
+process_manager.py
+async_executor.py
+
+# ❌ Bad
+ThreadPool.py
+processManager.py
+AsyncExecutor.py
+```
+
+### Package Names
+- **snake_case**: `thread_pool`, `process_manager`
+- **Lowercase**: All lowercase
+- **Singular or plural** based on content
+
+### Naming Best Practices
+
+#### Be Descriptive
+```python
+# ✅ Good
+def calculate_total_execution_time(tasks: List[Task]) -> float:
+    pass
+
+# ❌ Bad
+def calc(t: List) -> float:
+    pass
+```
+
+#### Avoid Abbreviations (Except Well-Known)
+```python
+# ✅ Good (well-known abbreviations)
+def get_http_response(url: str) -> Response:
+    pass
+
+def process_api_request(request: Request) -> Response:
+    pass
+
+# ❌ Bad (unclear abbreviations)
+def get_http_resp(url: str) -> Resp:
+    pass
+
+def proc_api_req(req: Request) -> Resp:
+    pass
+```
+
+#### Use Domain Language
+```python
+# ✅ Good (domain-specific)
+def submit_task_to_pool(task: Task) -> Future:
+    pass
+
+# ❌ Bad (generic)
+def submit_to_pool(item: Item) -> Future:
+    pass
+```
+
+### Naming Anti-Patterns
+
+#### Avoid
+- Single letters (except loop counters)
+- Abbreviations (except well-known: `id`, `http`, `api`, `url`)
+- Hungarian notation (e.g., `str_name`, `int_count`)
+- Misleading names
+- Names that differ only by case (`worker` vs `Worker`)
+

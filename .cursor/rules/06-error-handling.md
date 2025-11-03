@@ -1,0 +1,223 @@
+# Error Handling Standards
+
+## MANDATORY: Proper error handling for all code
+
+### Exception Handling Principles
+
+#### Use Specific Exceptions
+```python
+# ✅ Good
+try:
+    result = process_data(data)
+except ValueError as e:
+    logger.error(f"Invalid data: {e}")
+    raise
+except TimeoutError as e:
+    logger.error(f"Processing timed out: {e}")
+    raise
+except Exception as e:
+    logger.error(f"Unexpected error: {e}", exc_info=True)
+    raise ProcessingError(f"Failed to process data: {e}") from e
+
+# ❌ Bad
+try:
+    result = process_data(data)
+except:  # Bare except - catches everything
+    pass
+```
+
+#### Custom Exceptions
+```python
+# ✅ Good
+class TaskExecutionError(Exception):
+    """Raised when task execution fails."""
+    pass
+
+class TaskTimeoutError(TaskExecutionError):
+    """Raised when task execution times out."""
+    pass
+
+class TaskValidationError(TaskExecutionError):
+    """Raised when task validation fails."""
+    pass
+
+# Usage
+def execute_task(self, task: Task) -> Result:
+    try:
+        return self._run_task(task)
+    except TimeoutError as e:
+        raise TaskTimeoutError(f"Task {task.id} timed out") from e
+    except ValueError as e:
+        raise TaskValidationError(f"Task {task.id} invalid: {e}") from e
+```
+
+### Exception Context
+
+#### Include Context in Error Messages
+```python
+# ✅ Good
+def process_item(self, item: Item) -> Result:
+    try:
+        return self._validate_and_process(item)
+    except ValueError as e:
+        error_msg = f"Failed to process item {item.id}: {e}"
+        self._logger.error(error_msg)
+        raise ProcessingError(error_msg) from e
+
+# ❌ Bad
+def process_item(self, item: Item) -> Result:
+    try:
+        return self._validate_and_process(item)
+    except ValueError:
+        raise  # No context
+```
+
+### Exception Chaining
+
+#### Use Exception Chaining
+```python
+# ✅ Good
+def process_data(self, data: List[Item]) -> List[Result]:
+    try:
+        return [self._process_item(item) for item in data]
+    except ProcessingError as e:
+        raise DataProcessingError(f"Failed to process data: {e}") from e
+
+# ❌ Bad
+def process_data(self, data: List[Item]) -> List[Result]:
+    try:
+        return [self._process_item(item) for item in data]
+    except ProcessingError:
+        raise DataProcessingError("Failed to process data")  # Lost context
+```
+
+### Logging Errors
+
+#### Log Before Raising
+```python
+# ✅ Good
+def execute_task(self, task: Task) -> Result:
+    try:
+        return self._run_task(task)
+    except TimeoutError as e:
+        self._logger.error(
+            f"Task {task.id} timed out after {task.timeout}s",
+            exc_info=True
+        )
+        raise TaskTimeoutError(f"Task {task.id} timed out") from e
+    except Exception as e:
+        self._logger.error(
+            f"Unexpected error in task {task.id}: {e}",
+            exc_info=True
+        )
+        raise TaskExecutionError(f"Task {task.id} failed") from e
+
+# ❌ Bad
+def execute_task(self, task: Task) -> Result:
+    try:
+        return self._run_task(task)
+    except Exception as e:
+        raise  # No logging
+```
+
+### Error Handling Patterns
+
+#### Resource Cleanup
+```python
+# ✅ Good
+def process_with_resource(self, data: Data) -> Result:
+    resource = None
+    try:
+        resource = self._acquire_resource()
+        return self._process(data, resource)
+    except Exception as e:
+        self._logger.error(f"Processing failed: {e}")
+        raise
+    finally:
+        if resource:
+            self._release_resource(resource)
+```
+
+#### Context Managers
+```python
+# ✅ Good
+def process_with_resource(self, data: Data) -> Result:
+    with self._acquire_resource() as resource:
+        try:
+            return self._process(data, resource)
+        except Exception as e:
+            self._logger.error(f"Processing failed: {e}")
+            raise
+```
+
+### Validation and Error Prevention
+
+#### Validate Early
+```python
+# ✅ Good
+def process_data(self, data: List[Item]) -> List[Result]:
+    if not data:
+        raise ValueError("Data list cannot be empty")
+    
+    if len(data) > self._max_items:
+        raise ValueError(f"Data list exceeds maximum size: {self._max_items}")
+    
+    try:
+        return [self._process_item(item) for item in data]
+    except Exception as e:
+        raise ProcessingError(f"Failed to process data: {e}") from e
+
+# ❌ Bad
+def process_data(self, data: List[Item]) -> List[Result]:
+    results = []
+    for item in data:
+        try:
+            result = self._process_item(item)  # No validation
+            results.append(result)
+        except:
+            pass  # Silent failure
+    return results
+```
+
+### Error Recovery
+
+#### Graceful Degradation
+```python
+# ✅ Good
+def process_items(self, items: List[Item]) -> List[Result]:
+    results = []
+    errors = []
+    
+    for item in items:
+        try:
+            result = self._process_item(item)
+            results.append(result)
+        except ProcessingError as e:
+            self._logger.warning(f"Failed to process item {item.id}: {e}")
+            errors.append(e)
+            # Continue processing other items
+    
+    if errors:
+        self._logger.error(f"Failed to process {len(errors)} items")
+    
+    return results
+```
+
+### Error Handling Best Practices
+
+#### Do's
+- ✅ Use specific exception types
+- ✅ Include context in error messages
+- ✅ Log errors before raising
+- ✅ Use exception chaining
+- ✅ Validate input early
+- ✅ Clean up resources in finally blocks
+
+#### Don'ts
+- ❌ Don't use bare `except:`
+- ❌ Don't swallow exceptions silently
+- ❌ Don't lose exception context
+- ❌ Don't ignore errors
+- ❌ Don't catch generic Exception unless necessary
+- ❌ Don't raise without logging
+

@@ -1,0 +1,27 @@
+[MASTER]
+max-line-length=100
+ignore=migrations,venv,__pycache__,build
+ignore-patterns=test_.*,.*_test.py
+
+[MESSAGES CONTROL]
+disable=
+    C0111,
+    C0114,
+    C0115,
+    C0116,
+    R0903,
+    R0913
+
+[FORMAT]
+max-line-length=100
+indent-string=    
+
+[DESIGN]
+max-args=7
+max-attributes=10
+max-branches=15
+max-locals=15
+max-statements=50
+max-public-methods=7
+max-returns=6
+

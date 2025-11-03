@@ -1,0 +1,223 @@
+# Type Hints Requirements
+
+## MANDATORY: All functions MUST have type hints
+
+### Function Signatures
+
+#### Required Type Hints
+- **All parameters** must have type hints
+- **Return type** must be specified
+- **Use `None`** for functions that return nothing
+
+#### Examples
+```python
+# ✅ Good
+def process_data(items: List[str], max_workers: int = 4) -> Dict[str, Any]:
+    pass
+
+def calculate_total(items: List[int]) -> int:
+    pass
+
+def initialize() -> None:
+    pass
+
+# ❌ Bad
+def process_data(items, max_workers=4):
+    pass
+
+def calculate_total(items):
+    pass
+```
+
+### Class Attributes
+
+#### Type Hints for Attributes
+```python
+# ✅ Good
+class Worker:
+    def __init__(self, worker_id: str, max_tasks: int):
+        self._worker_id: str = worker_id
+        self._max_tasks: int = max_tasks
+        self._tasks: List[Task] = []
+        self._logger: logging.Logger = logging.getLogger(__name__)
+
+# ❌ Bad
+class Worker:
+    def __init__(self, worker_id, max_tasks):
+        self._worker_id = worker_id
+        self._max_tasks = max_tasks
+        self._tasks = []
+        self._logger = logging.getLogger(__name__)
+```
+
+### Complex Types
+
+#### Collections
+```python
+from typing import List, Dict, Tuple, Set, Optional
+
+# ✅ Good
+def process_items(items: List[str]) -> List[Dict[str, Any]]:
+    pass
+
+def get_config() -> Dict[str, str]:
+    pass
+
+def get_coordinates() -> Tuple[float, float]:
+    pass
+
+def get_unique_items() -> Set[str]:
+    pass
+```
+
+#### Optional Types
+```python
+from typing import Optional
+
+# ✅ Good
+def find_item(item_id: str) -> Optional[Item]:
+    pass
+
+def get_timeout() -> Optional[float]:
+    pass
+```
+
+#### Union Types
+```python
+from typing import Union
+
+# ✅ Good
+def process(value: Union[str, int]) -> Union[str, int]:
+    pass
+
+# Or use | syntax (Python 3.10+)
+def process(value: str | int) -> str | int:
+    pass
+```
+
+#### Callable Types
+```python
+from typing import Callable
+
+# ✅ Good
+def execute_task(task_func: Callable[[str, int], bool]) -> bool:
+    pass
+
+def register_handler(handler: Callable[[Event], None]) -> None:
+    pass
+```
+
+#### Generic Types
+```python
+from typing import TypeVar, Generic, List
+
+T = TypeVar('T')
+
+# ✅ Good
+class Processor(Generic[T]):
+    def process(self, items: List[T]) -> List[T]:
+        pass
+```
+
+### Type Aliases
+
+#### Creating Type Aliases
+```python
+from typing import Dict, List, Any
+
+# ✅ Good
+Result = Dict[str, Any]
+Config = Dict[str, str]
+TaskList = List[Task]
+
+def process(config: Config) -> Result:
+    pass
+```
+
+### Type Hints Best Practices
+
+#### Be Specific
+```python
+# ✅ Good
+def process(items: List[str]) -> Dict[str, int]:
+    pass
+
+# ❌ Bad (too generic)
+def process(items: List) -> Dict:
+    pass
+```
+
+#### Use Optional for Nullable Values
+```python
+# ✅ Good
+def find_user(user_id: str) -> Optional[User]:
+    pass
+
+# ❌ Bad
+def find_user(user_id: str) -> User:  # Can return None
+    pass
+```
+
+#### Document Complex Types
+```python
+# ✅ Good
+def process_data(
+    items: List[Dict[str, Union[str, int]]],
+    config: Dict[str, Any]
+) -> Dict[str, List[Any]]:
+    """Process items with complex nested types."""
+    pass
+```
+
+### Common Patterns
+
+#### Async Functions
+```python
+from typing import Coroutine
+
+# ✅ Good
+async def fetch_data(url: str) -> Dict[str, Any]:
+    pass
+```
+
+#### Generators
+```python
+from typing import Iterator, Generator
+
+# ✅ Good
+def generate_items() -> Iterator[str]:
+    yield "item1"
+    yield "item2"
+
+def process_items() -> Generator[str, None, None]:
+    yield "item1"
+    yield "item2"
+```
+
+#### Context Managers
+```python
+from typing import ContextManager
+
+# ✅ Good
+def create_resource() -> ContextManager[Resource]:
+    pass
+```
+
+### Type Checking
+
+#### Using mypy
+- Run `mypy` on all code
+- Fix all type errors
+- Use type stubs for third-party libraries
+
+#### Common Type Errors
+```python
+# ❌ Type error
+def process(items: List[str]) -> int:
+    return "result"  # Should return int
+
+# ✅ Fixed
+def process(items: List[str]) -> str:
+    return "result"
+```
+
