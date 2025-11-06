@@ -1,0 +1,160 @@
+
+        if rule.multiple:
+            values = []
+            for match in matches:
+                value = match
+                if rule.transform:
+                    value = rule.transform(value)
+                values.append(value)
+            return ExtractionResult(rule_name=rule.name, value=values, success=True)
+        else:
+            value = matches[0]
+            if rule.transform:
+                value = rule.transform(value)
+            return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+    except Exception as e:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error=f"Regex error: {e}"
+        )
+
+
+def _extract_attribute(self: 'HTMLExtractor', soup: Any, rule: ExtractionRule) -> ExtractionResult:
+    """Extract element attribute value."""
+    if soup is str:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error="Attribute extraction requires BeautifulSoup"
+        )
+
+    try:
+        elements = soup.select(rule.selector) if rule.selector else [soup]
+
+        if not elements:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=True
+            )
+
+        if rule.multiple:
+            values = []
+            for element in elements:
+                value = element.get(rule.attribute, rule.default_value)
+                if rule.transform:
+                    value = rule.transform(value)
+                values.append(value)
+            return ExtractionResult(rule_name=rule.name, value=values, success=True)
+        else:
+            element = elements[0]
+            value = element.get(rule.attribute, rule.default_value)
+            if rule.transform:
+                value = rule.transform(value)
+            return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+    except Exception as e:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error=f"Attribute extraction error: {e}"
+        )
+
+
+def _extract_text(self: 'HTMLExtractor', soup: Any, rule: ExtractionRule) -> ExtractionResult:
+    """Extract text content from HTML."""
+    if soup is str:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error="Text extraction requires BeautifulSoup"
+        )
+
+    try:
+        if rule.selector:
+            elements = soup.select(rule.selector)
+        else:
+            elements = [soup]
+
+        if not elements:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=True
+            )
+
+        if rule.multiple:
+            values = []
+            for element in elements:
+                value = element.get_text(strip=True)
+                if rule.transform:
+                    value = rule.transform(value)
+                values.append(value)
+            return ExtractionResult(rule_name=rule.name, value=values, success=True)
+        else:
+            element = elements[0]
+            value = element.get_text(strip=True)
+            if rule.transform:
+                value = rule.transform(value)
+            return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+    except Exception as e:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error=f"Text extraction error: {e}"
+        )
+
+
+def _extract_html(self: 'HTMLExtractor', soup: Any, rule: ExtractionRule) -> ExtractionResult:
+    """Extract HTML content."""
+    if soup is str:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error="HTML extraction requires BeautifulSoup"
+        )
+
+    try:
+        if rule.selector:
+            elements = soup.select(rule.selector)
+        else:
+            elements = [soup]
+
+        if not elements:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=True
+            )
+
+        if rule.multiple:
+            values = []
+            for element in elements:
+                value = str(element)
+                if rule.transform:
+                    value = rule.transform(value)
+                values.append(value)
+            return ExtractionResult(rule_name=rule.name, value=values, success=True)
+        else:
+            element = elements[0]
+            value = str(element)
+            if rule.transform:
+                value = rule.transform(value)
+            return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+    except Exception as e:
+        return ExtractionResult(
+            rule_name=rule.name,
+            value=rule.default_value,
+            success=False,
+            error=f"HTML extraction error: {e}"
+        )

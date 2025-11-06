@@ -1,0 +1,160 @@
+
+        return result
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get parser stage statistics."""
+        total_processed = self._extraction_success + self._extraction_errors
+        success_rate = (self._extraction_success / total_processed * 100) if total_processed > 0 else 0
+
+        return {
+            "stage_name": self.name,
+            "documents_processed": self._documents_processed,
+            "extraction_success": self._extraction_success,
+            "extraction_errors": self._extraction_errors,
+            "success_rate": success_rate,
+            "input_field": self.input_field,
+            "output_field": self.output_field,
+            "num_rules": len(self.extraction_rules)
+        }
+
+
+class ConfigurableHTMLParserStage(TransformStage):
+    """HTML parser stage that accepts configuration at runtime."""
+
+    def __init__(
+        self,
+        name: str,
+        default_rules: Optional[List[ExtractionRule]] = None,
+        input_field: str = "data",
+        output_field: str = "extracted_data",
+        rules_field: str = "extraction_rules"
+    ):
+        """Initialize configurable HTML parser stage.
+
+        Args:
+            name: Stage name
+            default_rules: Default extraction rules if none provided in data
+            input_field: Field containing HTML content
+            output_field: Field for extracted data
+            rules_field: Field containing extraction rules configuration
+        """
+        super().__init__(name)
+        self.default_rules = default_rules or []
+        self.input_field = input_field
+        self.output_field = output_field
+        self.rules_field = rules_field
+
+        # Statistics
+        self._documents_processed = 0
+        self._extraction_success = 0
+        self._extraction_errors = 0
+
+    def transform(self, data: Any) -> Any:
+        """Parse HTML using rules from input data or defaults.
+
+        Args:
+            data: Input data with HTML content and optionally extraction rules
+
+        Returns:
+            Data with extracted information
+        """
+        self._documents_processed += 1
+
+        try:
+            # Get extraction rules from input data or use defaults
+            rules = self._get_extraction_rules(data)
+
+            # Create extractor for this request
+            extractor = HTMLExtractor(rules)
+
+            # Extract HTML content
+            html_content = self._get_html_content(data)
+            if not html_content:
+                return self._create_error_result(data, "No HTML content found")
+
+            # Extract data
+            extracted_data = extractor.extract(html_content)
+
+            # Update statistics
+            if extracted_data.get("_extraction_success", False):
+                self._extraction_success += 1
+            else:
+                self._extraction_errors += 1
+
+            # Create result
+            result = dict(data) if isinstance(data, dict) else {"original_input": data}
+            result[self.output_field] = extracted_data
+
+            return result
+
+        except Exception as e:
+            self._extraction_errors += 1
+
+            self._logger.error(
+                f"Configurable HTML parsing failed: {e}",
+                extra={
+                    "stage_name": self.name,
+                    "error_type": type(e).__name__,
+                    "document_number": self._documents_processed
+                },
+                exc_info=True
+            )
+
+            return self._create_error_result(data, str(e))
+
+    def _get_extraction_rules(self, data: Any) -> List[ExtractionRule]:
+        """Get extraction rules from input data or use defaults.
+
+        Args:
+            data: Input data that may contain rules configuration
+
+        Returns:
+            List of extraction rules
+        """
+        if isinstance(data, dict) and self.rules_field in data:
+            rules_config = data[self.rules_field]
+            if isinstance(rules_config, list):
+                try:
+                    return create_extraction_rules(rules_config)
+                except Exception as e:
+                    self._logger.warning(
+                        f"Failed to create rules from config: {e}, using defaults",
+                        extra={"stage_name": self.name}
+                    )
+
+        return self.default_rules
+
+    def _get_html_content(self, data: Any) -> Optional[str]:
+        """Extract HTML content from input data.
+
+        Args:
+            data: Input data dictionary or string
+
+        Returns:
+            HTML content as string or None if not found
+        """
+        if isinstance(data, str):
+            return data
+
+        if isinstance(data, dict):
+            # Try configured input field first
+            if self.input_field in data:
+                content = data[self.input_field]
+                if isinstance(content, str):
+                    return content
+                elif isinstance(content, bytes):
+                    return content.decode('utf-8', errors='ignore')
+
+            # Fallback to common HTML fields
+            for field in ['html', 'content', 'body', 'text']:
+                if field in data and isinstance(data[field], str):
+                    return data[field]
+
+        return None
+
+    def _create_error_result(self, original_data: Any, error_message: str) -> Dict[str, Any]:
+        """Create error result for failed parsing.
+
+        Args:
+            original_data: Original input data
+            error_message: Error description

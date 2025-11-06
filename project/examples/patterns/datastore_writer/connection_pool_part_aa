@@ -1,0 +1,160 @@
+"""
+Connection pool implementation for database connections.
+
+This module provides thread-safe connection pooling with automatic
+connection management, health checks, and configurable pool settings.
+"""
+
+import time
+import threading
+import logging
+from typing import Any, Optional, Callable, Dict, List
+from dataclasses import dataclass
+from queue import Queue, Empty, Full
+
+
+@dataclass
+class PoolConfig:
+    """Configuration for connection pool."""
+    max_connections: int = 10
+    min_connections: int = 1
+    max_idle_time: float = 300.0  # 5 minutes
+    max_lifetime: float = 3600.0  # 1 hour
+    health_check_interval: float = 60.0  # 1 minute
+    acquire_timeout: float = 30.0  # 30 seconds
+    retry_attempts: int = 3
+    retry_delay: float = 1.0
+
+    def __post_init__(self):
+        """Validate configuration."""
+        if self.max_connections < 1:
+            raise ValueError("max_connections must be at least 1")
+        if self.min_connections < 0:
+            raise ValueError("min_connections must be non-negative")
+        if self.min_connections > self.max_connections:
+            raise ValueError("min_connections cannot exceed max_connections")
+        if self.max_idle_time <= 0:
+            raise ValueError("max_idle_time must be positive")
+        if self.max_lifetime <= 0:
+            raise ValueError("max_lifetime must be positive")
+
+
+@dataclass
+class PooledConnection:
+    """Wrapper for pooled connections with metadata."""
+    connection: Any
+    created_at: float
+    last_used: float
+    last_health_check: float
+    is_healthy: bool = True
+
+    @property
+    def age(self) -> float:
+        """Get connection age in seconds."""
+        return time.time() - self.created_at
+
+    @property
+    def idle_time(self) -> float:
+        """Get idle time in seconds."""
+        return time.time() - self.last_used
+
+    def mark_used(self) -> None:
+        """Mark connection as recently used."""
+        self.last_used = time.time()
+
+    def needs_health_check(self, interval: float) -> bool:
+        """Check if connection needs health check."""
+        return (time.time() - self.last_health_check) > interval
+
+
+class ConnectionPool:
+    """Thread-safe connection pool with automatic management."""
+
+    def __init__(
+        self,
+        connection_factory: Callable[[], Any],
+        health_check: Optional[Callable[[Any], bool]] = None,
+        config: Optional[PoolConfig] = None
+    ):
+        """Initialize connection pool.
+
+        Args:
+            connection_factory: Function to create new connections
+            health_check: Function to check connection health
+            config: Pool configuration
+        """
+        self.config = config or PoolConfig()
+        self._connection_factory = connection_factory
+        self._health_check = health_check or (lambda conn: True)
+
+        # Thread-safe storage
+        self._available = Queue(maxsize=self.config.max_connections)
+        self._in_use = set()
+        self._lock = threading.RLock()
+
+        # Statistics
+        self._created_count = 0
+        self._destroyed_count = 0
+        self._acquired_count = 0
+        self._released_count = 0
+
+        self._logger = logging.getLogger(__name__)
+        self._shutdown = False
+
+        # Initialize minimum connections
+        self._initialize_pool()
+
+        # Start maintenance thread
+        self._maintenance_thread = threading.Thread(
+            target=self._maintenance_loop,
+            daemon=True,
+            name="ConnectionPool-Maintenance"
+        )
+        self._maintenance_thread.start()
+
+    def _initialize_pool(self) -> None:
+        """Initialize minimum number of connections."""
+        for _ in range(self.config.min_connections):
+            try:
+                conn = self._create_connection()
+                self._available.put(conn)
+            except Exception as e:
+                self._logger.warning(f"Failed to create initial connection: {e}")
+
+    def _create_connection(self) -> PooledConnection:
+        """Create a new pooled connection."""
+        conn = self._connection_factory()
+        pooled = PooledConnection(
+            connection=conn,
+            created_at=time.time(),
+            last_used=time.time(),
+            last_health_check=time.time()
+        )
+        self._created_count += 1
+        self._logger.debug(f"Created new connection (total: {self._created_count})")
+        return pooled
+
+    def _destroy_connection(self, pooled_conn: PooledConnection) -> None:
+        """Destroy a pooled connection."""
+        try:
+            if hasattr(pooled_conn.connection, 'close'):
+                pooled_conn.connection.close()
+        except Exception as e:
+            self._logger.warning(f"Error closing connection: {e}")
+
+        self._destroyed_count += 1
+        self._logger.debug(f"Destroyed connection (total: {self._destroyed_count})")
+
+    def acquire(self, timeout: Optional[float] = None) -> Any:
+        """Acquire a connection from the pool.
+
+        Args:
+            timeout: Maximum time to wait for connection
+
+        Returns:
+            Database connection
+
+        Raises:
+            TimeoutError: If no connection available within timeout
+        """
+        if self._shutdown:

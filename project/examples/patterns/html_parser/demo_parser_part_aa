@@ -1,0 +1,160 @@
+"""
+Demonstrations of HTML Parser functionality.
+
+This module provides practical examples of using HTML parsing
+stages to extract structured data from web content.
+"""
+
+import logging
+from typing import Any, List
+
+from ..pipeline_core.message import create_data_message
+from ..pipeline_core.runner import PipelineRunner
+from .extractor import ExtractionRule, ExtractionMethod, create_extraction_rules
+from .parser_stage import HTMLParserStage, ConfigurableHTMLParserStage
+
+
+def demo_basic_html_parsing() -> None:
+    """Demonstrate basic HTML parsing with predefined rules."""
+    print("=== Basic HTML Parsing Demo ===")
+
+    # Sample HTML content
+    html_content = """
+    <html>
+    <head><title>Test Page</title></head>
+    <body>
+        <h1>Welcome to Test Page</h1>
+        <div class="content">
+            <p>This is a test paragraph.</p>
+            <ul class="items">
+                <li class="item" data-id="1">Item 1</li>
+                <li class="item" data-id="2">Item 2</li>
+                <li class="item" data-id="3">Item 3</li>
+            </ul>
+        </div>
+        <div class="metadata">
+            <span class="author">John Doe</span>
+            <span class="date">2024-01-15</span>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Define extraction rules
+    rules = [
+        ExtractionRule(
+            name="title",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="title",
+            required=True
+        ),
+        ExtractionRule(
+            name="heading",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="h1"
+        ),
+        ExtractionRule(
+            name="items",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".item",
+            multiple=True
+        ),
+        ExtractionRule(
+            name="item_ids",
+            method=ExtractionMethod.ATTRIBUTE,
+            selector=".item",
+            attribute="data-id",
+            multiple=True
+        ),
+        ExtractionRule(
+            name="author",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".author"
+        ),
+        ExtractionRule(
+            name="date",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".date"
+        )
+    ]
+
+    # Create parser stage
+    parser = HTMLParserStage(
+        name="BasicParser",
+        extraction_rules=rules,
+        input_field="html_content",
+        output_field="parsed_data"
+    )
+
+    # Create pipeline
+    pipeline = PipelineRunner([parser])
+
+    # Input data
+    input_data = {"html_content": html_content, "source_url": "https://example.com/test"}
+    input_messages = [create_data_message(input_data)]
+
+    print("HTML content to parse:")
+    print(html_content[:200] + "..." if len(html_content) > 200 else html_content)
+    print(f"\nExtraction rules: {len(rules)}")
+    print("Pipeline: HTML Parser")
+    print()
+
+    try:
+        results = pipeline.run_pipeline(input_messages, timeout=10.0)
+
+        print(f"Pipeline completed in {results['execution_time']:.2f}s")
+        print(f"Success: {results['success']}")
+
+        if results['success']:
+            # Show extracted data
+            parsed_data = results[0][parser.output_field]
+            print("
+Extracted data:")
+            for key, value in parsed_data.items():
+                if not key.startswith('_'):
+                    print(f"  {key}: {value}")
+
+            errors = parsed_data.get('_extraction_errors', [])
+            if errors:
+                print(f"\nExtraction errors: {len(errors)}")
+                for error in errors[:3]:  # Show first 3 errors
+                    print(f"  - {error}")
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+
+
+def demo_configurable_parsing() -> None:
+    """Demonstrate runtime-configurable HTML parsing."""
+    print("\n=== Configurable HTML Parsing Demo ===")
+
+    # Create configurable parser
+    parser = ConfigurableHTMLParserStage(
+        name="ConfigurableParser",
+        input_field="html",
+        output_field="extracted",
+        rules_field="rules"
+    )
+
+    pipeline = PipelineRunner([parser])
+
+    # Input with HTML and custom extraction rules
+    input_data = {
+        "html": """
+        <div class="product">
+            <h2 class="name">Widget Pro</h2>
+            <span class="price">$29.99</span>
+            <div class="specs">
+                <span class="category">Electronics</span>
+                <span class="stock">In Stock</span>
+            </div>
+        </div>
+        """,
+        "rules": [
+            {
+                "name": "product_name",
+                "method": "css_selector",
+                "selector": ".name"
+            },
+            {
+                "name": "price",

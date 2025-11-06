@@ -1,0 +1,160 @@
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = "<html><body></body></html>"
+        result = extractor.extract(html)
+
+        assert result["_extraction_success"] is False
+        assert len(result["_extraction_errors"]) > 0
+        assert "Required field" in result["_extraction_errors"][0]
+
+    def test_default_values(self):
+        """Test default value handling."""
+        rules = [
+            ExtractionRule(
+                name="missing",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector=".nonexistent",
+                default_value="Not found"
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = "<html><body></body></html>"
+        result = extractor.extract(html)
+
+        assert result["missing"] == "Not found"
+        assert result["_extraction_success"] is True
+
+
+class TestHTMLParserStage:
+    """Tests for HTML parser pipeline stage."""
+
+    def test_parser_stage_creation(self):
+        """Test parser stage initialization."""
+        rules = [
+            ExtractionRule(
+                name="title",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector="title"
+            )
+        ]
+
+        stage = HTMLParserStage(
+            name="TestParser",
+            extraction_rules=rules,
+            input_field="html",
+            output_field="parsed"
+        )
+
+        assert stage.name == "TestParser"
+        assert stage.input_field == "html"
+        assert stage.output_field == "parsed"
+        assert len(stage.extraction_rules) == 1
+
+    def test_html_content_extraction(self):
+        """Test extracting HTML content from input data."""
+        stage = HTMLParserStage(
+            name="TestParser",
+            extraction_rules=[],
+            input_field="content"
+        )
+
+        # Test string input
+        assert stage._get_html_content("test html") == "test html"
+
+        # Test dict input with configured field
+        data = {"content": "<html>test</html>", "other": "data"}
+        assert stage._get_html_content(data) == "<html>test</html>"
+
+        # Test dict input with fallback fields
+        data = {"html": "<html>test</html>"}
+        assert stage._get_html_content(data) == "<html>test</html>"
+
+        # Test bytes input
+        data = {"content": b"<html>test</html>"}
+        assert stage._get_html_content(data) == "<html>test</html>"
+
+    def test_error_result_creation(self):
+        """Test error result creation."""
+        stage = HTMLParserStage(name="TestParser", extraction_rules=[])
+
+        original_data = {"test": "data"}
+        error_result = stage._create_error_result(original_data, "Test error")
+
+        assert error_result["test"] == "data"
+        assert error_result[stage.output_field]["_extraction_success"] is False
+        assert "Test error" in error_result[stage.output_field]["_extraction_errors"]
+
+    def test_parser_statistics(self):
+        """Test parser statistics reporting."""
+        rules = [ExtractionRule(name="test", method=ExtractionMethod.TEXT, selector="")]
+        stage = HTMLParserStage(name="TestParser", extraction_rules=rules)
+
+        stats = stage.get_stats()
+        assert stats["stage_name"] == "TestParser"
+        assert stats["documents_processed"] == 0
+        assert stats["num_rules"] == 1
+
+
+class TestConfigurableHTMLParserStage:
+    """Tests for configurable HTML parser stage."""
+
+    def test_configurable_stage_creation(self):
+        """Test configurable parser stage initialization."""
+        stage = ConfigurableHTMLParserStage(
+            name="ConfigParser",
+            rules_field="custom_rules"
+        )
+
+        assert stage.name == "ConfigParser"
+        assert stage.rules_field == "custom_rules"
+        assert len(stage.default_rules) == 0
+
+    def test_runtime_rule_creation(self):
+        """Test creating rules from runtime configuration."""
+        stage = ConfigurableHTMLParserStage(name="TestParser")
+
+        config_data = {
+            "html": "<html><title>Test</title></html>",
+            "extraction_rules": [
+                {
+                    "name": "title",
+                    "method": "css_selector",
+                    "selector": "title"
+                }
+            ]
+        }
+
+        rules = stage._get_extraction_rules(config_data)
+        assert len(rules) == 1
+        assert rules[0].name == "title"
+        assert rules[0].method == ExtractionMethod.CSS_SELECTOR
+
+    def test_fallback_to_default_rules(self):
+        """Test falling back to default rules when none provided."""
+        default_rules = [
+            ExtractionRule(
+                name="default_title",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector="title"
+            )
+        ]
+
+        stage = ConfigurableHTMLParserStage(
+            name="TestParser",
+            default_rules=default_rules
+        )
+
+        # No rules in input data
+        config_data = {"html": "<html><title>Test</title></html>"}
+        rules = stage._get_extraction_rules(config_data)
+
+        assert len(rules) == 1
+        assert rules[0].name == "default_title"
+
+
+class TestIntegration:
+    """Integration tests combining multiple components."""
+

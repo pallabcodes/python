@@ -1,0 +1,150 @@
+                return self._extract_text(soup, rule)
+            elif rule.method == ExtractionMethod.HTML:
+                return self._extract_html(soup, rule)
+            else:
+                return ExtractionResult(
+                    rule_name=rule.name,
+                    value=rule.default_value,
+                    success=False,
+                    error=f"Unsupported extraction method: {rule.method}"
+                )
+
+        except Exception as e:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=False,
+                error=str(e)
+            )
+
+    def _extract_css_selector(self, soup: Any, rule: ExtractionRule) -> ExtractionResult:
+        """Extract data using CSS selector."""
+        if soup is str:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=False,
+                error="CSS selectors require BeautifulSoup"
+            )
+
+        try:
+            elements = soup.select(rule.selector)
+
+            if not elements:
+                return ExtractionResult(
+                    rule_name=rule.name,
+                    value=rule.default_value if rule.multiple else None,
+                    success=True
+                )
+
+            if rule.multiple:
+                values = []
+                for element in elements:
+                    value = self._get_element_value(element, rule.attribute)
+                    if rule.transform:
+                        value = rule.transform(value)
+                    values.append(value)
+                return ExtractionResult(rule_name=rule.name, value=values, success=True)
+            else:
+                element = elements[0]
+                value = self._get_element_value(element, rule.attribute)
+                if rule.transform:
+                    value = rule.transform(value)
+                return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+        except Exception as e:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=False,
+                error=f"CSS selector error: {str(e)}"
+            )
+
+    def _extract_xpath(self, soup: Any, html_content: str, rule: ExtractionRule) -> ExtractionResult:
+        """Extract data using XPath expression."""
+        try:
+            from lxml import html, etree
+        except ImportError:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=False,
+                error="XPath extraction requires lxml library"
+            )
+
+        try:
+            tree = html.fromstring(html_content)
+            elements = tree.xpath(rule.selector)
+
+            if not elements:
+                return ExtractionResult(
+                    rule_name=rule.name,
+                    value=rule.default_value if rule.multiple else None,
+                    success=True
+                )
+
+            if rule.multiple:
+                values = []
+                for element in elements:
+                    if hasattr(element, 'text') and element.text:
+                        value = element.text.strip()
+                    elif hasattr(element, 'attrib') and rule.attribute:
+                        value = element.attrib.get(rule.attribute, "")
+                    else:
+                        value = etree.tostring(element, encoding='unicode', method='text').strip()
+
+                    if rule.transform:
+                        value = rule.transform(value)
+                    values.append(value)
+                return ExtractionResult(rule_name=rule.name, value=values, success=True)
+            else:
+                element = elements[0]
+                if hasattr(element, 'text') and element.text:
+                    value = element.text.strip()
+                elif hasattr(element, 'attrib') and rule.attribute:
+                    value = element.attrib.get(rule.attribute, "")
+                else:
+                    value = etree.tostring(element, encoding='unicode', method='text').strip()
+
+                if rule.transform:
+                    value = rule.transform(value)
+                return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+        except Exception as e:
+            return ExtractionResult(
+                rule_name=rule.name,
+                value=rule.default_value,
+                success=False,
+                error=f"XPath error: {str(e)}"
+            )
+
+    def _extract_regex(self, html_content: str, rule: ExtractionRule) -> ExtractionResult:
+        """Extract data using regular expressions."""
+        try:
+            pattern = re.compile(rule.selector, re.MULTILINE | re.DOTALL)
+            matches = pattern.findall(html_content)
+
+            if not matches:
+                return ExtractionResult(
+                    rule_name=rule.name,
+                    value=rule.default_value if rule.multiple else None,
+                    success=True
+                )
+
+            if rule.multiple:
+                values = []
+                for match in matches:
+                    value = match
+                    if rule.transform:
+                        value = rule.transform(value)
+                    values.append(value)
+                return ExtractionResult(rule_name=rule.name, value=values, success=True)
+            else:
+                value = matches[0]
+                if rule.transform:
+                    value = rule.transform(value)
+                return ExtractionResult(rule_name=rule.name, value=value, success=True)
+
+        except Exception as e:
+            return ExtractionResult(
+                rule_name=rule.name,

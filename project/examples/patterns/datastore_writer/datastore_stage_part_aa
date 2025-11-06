@@ -1,0 +1,160 @@
+"""
+Datastore writer pipeline stage.
+
+This module provides a pipeline stage for writing data to various
+storage backends with connection pooling, transactions, and batch operations.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional, Callable, Union
+from abc import ABC, abstractmethod
+
+from ..pipeline_core.stage_types import SinkStage
+from .connection_pool import ConnectionPool, PoolConfig
+from .transaction_manager import TransactionManager, IsolationLevel
+from .batch_writer import BatchWriter, BatchConfig, BatchResult
+
+
+class DatastoreError(Exception):
+    """Datastore operation error."""
+    pass
+
+
+class DatastoreBackend(ABC):
+    """Abstract base class for datastore backends."""
+
+    @abstractmethod
+    def create_connection_factory(self) -> Callable[[], Any]:
+        """Create connection factory for this backend."""
+        pass
+
+    @abstractmethod
+    def create_health_check(self) -> Callable[[Any], bool]:
+        """Create health check function for connections."""
+        pass
+
+    @abstractmethod
+    def execute_write(self, connection: Any, data: Any) -> None:
+        """Execute write operation for single data item."""
+        pass
+
+    @abstractmethod
+    def execute_batch_write(self, connection: Any, data: List[Any]) -> int:
+        """Execute batch write operation.
+
+        Returns:
+            Number of items successfully written
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Get backend name."""
+        pass
+
+
+class DatastoreWriterStage(SinkStage):
+    """Pipeline stage for writing data to datastores."""
+
+    def __init__(
+        self,
+        name: str,
+        backend: DatastoreBackend,
+        pool_config: Optional[PoolConfig] = None,
+        transaction_manager: Optional[TransactionManager] = None,
+        batch_config: Optional[BatchConfig] = None,
+        isolation_level: Optional[IsolationLevel] = None,
+        enable_transactions: bool = True
+    ):
+        """Initialize datastore writer stage.
+
+        Args:
+            name: Stage name
+            backend: Datastore backend implementation
+            pool_config: Connection pool configuration
+            transaction_manager: Custom transaction manager
+            batch_config: Batch writing configuration
+            isolation_level: Transaction isolation level
+            enable_transactions: Whether to use transactions
+        """
+        super().__init__(name)
+        self.backend = backend
+        self.pool_config = pool_config or PoolConfig()
+        self.batch_config = batch_config or BatchConfig()
+        self.isolation_level = isolation_level
+        self.enable_transactions = enable_transactions
+
+        # Initialize components
+        self._connection_pool = None
+        self._transaction_manager = transaction_manager
+        self._batch_writer = None
+
+        # Statistics
+        self._items_written = 0
+        self._batches_processed = 0
+        self._errors_encountered = 0
+
+    def on_initialize(self) -> None:
+        """Initialize datastore connections and components."""
+        # Create connection pool
+        connection_factory = self.backend.create_connection_factory()
+        health_check = self.backend.create_health_check()
+
+        self._connection_pool = ConnectionPool(
+            connection_factory=connection_factory,
+            health_check=health_check,
+            config=self.pool_config
+        )
+
+        # Create transaction manager if enabled
+        if self.enable_transactions and self._transaction_manager is None:
+            self._transaction_manager = TransactionManager(self._connection_pool)
+
+        # Create batch writer
+        self._batch_writer = BatchWriter(
+            batch_processor=self._process_batch,
+            config=self.batch_config
+        )
+
+        self._logger.info(
+            f"Initialized datastore writer '{self.name}' with backend '{self.backend.name}'",
+            extra={
+                "stage_name": self.name,
+                "backend": self.backend.name,
+                "pool_max_connections": self.pool_config.max_connections,
+                "batch_max_size": self.batch_config.max_batch_size
+            }
+        )
+
+    def consume(self, data: Any) -> None:
+        """Consume data by writing to datastore.
+
+        Args:
+            data: Data to write
+        """
+        if self._batch_writer:
+            self._batch_writer.add_item(data)
+        else:
+            self._write_single_item(data)
+
+    def flush(self) -> None:
+        """Flush any pending batch writes."""
+        if self._batch_writer:
+            result = self._batch_writer.force_flush()
+            if result:
+                self._batches_processed += 1
+                if not result.success:
+                    self._errors_encountered += 1
+                    self._logger.error(
+                        f"Batch write failed: {result.error}",
+                        extra={
+                            "stage_name": self.name,
+                            "batch_id": result.batch_id,
+                            "error": result.error
+                        }
+                    )
+
+    def cleanup(self) -> None:
+        """Clean up resources."""
+        # Flush any remaining batches

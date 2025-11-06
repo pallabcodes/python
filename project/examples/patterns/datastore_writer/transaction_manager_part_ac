@@ -1,0 +1,56 @@
+        super().__init__(connection_pool)
+        self._transaction_stack: List[str] = []
+
+    @contextmanager
+    def transaction(
+        self,
+        isolation_level: Optional[IsolationLevel] = None,
+        readonly: bool = False
+    ):
+        """Context manager for nested transactions.
+
+        Args:
+            isolation_level: Transaction isolation level (only for root transaction)
+            readonly: Whether transaction is read-only (only for root transaction)
+
+        Yields:
+            Connection with active transaction
+        """
+        if self._transaction_stack:
+            # Nested transaction - create savepoint
+            parent_transaction_id = self._transaction_stack[-1]
+            conn = None
+
+            try:
+                # Get connection from parent transaction
+                # This is a simplified implementation
+                conn = self._pool.acquire()
+                savepoint_name = f"nested_{len(self._transaction_stack)}"
+
+                # Create savepoint instead of new transaction
+                self.create_savepoint(conn, parent_transaction_id, savepoint_name)
+
+                yield conn
+
+            except Exception as e:
+                if conn and parent_transaction_id:
+                    try:
+                        self.rollback_to_savepoint(conn, parent_transaction_id, savepoint_name)
+                    except Exception:
+                        pass
+                raise TransactionError(f"Nested transaction failed: {e}") from e
+
+            finally:
+                if conn:
+                    self._pool.release(conn)
+
+        else:
+            # Root transaction
+            with super().transaction(isolation_level, readonly) as conn:
+                self._transaction_stack.append(self._active_transactions.keys()[-1] if self._active_transactions else "unknown")
+                try:
+                    yield conn
+                finally:
+                    if self._transaction_stack:
+                        self._transaction_stack.pop()
+

@@ -1,0 +1,64 @@
+
+    def test_full_pipeline_integration(self):
+        """Test complete datastore writing pipeline."""
+        from ..pipeline_core.runner import PipelineRunner
+
+        # Create temporary database
+        import tempfile
+        db_fd, db_path = tempfile.mkstemp(suffix='.db')
+
+        try:
+            # Create backend and writer
+            backend = SQLiteBackend(
+                db_path=db_path,
+                table_name="integration_test",
+                create_table_sql="""
+                CREATE TABLE integration_test (
+                    id INTEGER,
+                    name TEXT,
+                    value REAL
+                )
+                """
+            )
+
+            writer = DatastoreWriterStage(
+                name="IntegrationWriter",
+                backend=backend,
+                enable_transactions=False
+            )
+
+            pipeline = PipelineRunner([writer])
+
+            # Test data
+            test_data = [
+                {"id": 1, "name": "test1", "value": 10.5},
+                {"id": 2, "name": "test2", "value": 20.3}
+            ]
+
+            results = pipeline.run_pipeline([test_data[0], test_data[1]])
+
+            assert results["success"] is True
+
+            # Verify data was written
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM integration_test")
+            count = cursor.fetchone()[0]
+            conn.close()
+
+            assert count == 2
+
+        finally:
+            import os
+            try:
+                os.close(db_fd)
+                os.unlink(db_path)
+            except:
+                pass
+
+
+if __name__ == "__main__":
+    """Run tests when executed directly."""
+    pytest.main([__file__, "-v"])
+

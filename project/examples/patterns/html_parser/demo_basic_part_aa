@@ -1,0 +1,130 @@
+"""
+Basic HTML parser demonstrations.
+
+This module contains fundamental demonstrations of HTML parsing
+with predefined rules and basic functionality.
+"""
+
+import logging
+from typing import Any, List
+
+from ..pipeline_core.message import create_data_message
+from ..pipeline_core.runner import PipelineRunner
+from .extractor import ExtractionRule, ExtractionMethod
+from .parser_stage import HTMLParserStage
+
+
+class ResponseProcessor:
+    """Process HTML parser responses."""
+
+    def __init__(self, name: str = "ResponseProcessor"):
+        self.name = name
+        self._processed = 0
+
+    def transform(self, data: Any) -> Any:
+        """Process HTML parser response data."""
+        self._processed += 1
+
+        if isinstance(data, dict) and data.get("error"):
+            # Handle error responses
+            return {
+                "processed": False,
+                "error": data["error_message"],
+                "original": data.get("original_request")
+            }
+
+        # Process successful responses
+        if isinstance(data, dict) and "status_code" in data:
+            return {
+                "processed": True,
+                "url": data.get("url"),
+                "status": data.get("status_code"),
+                "content_type": data.get("content_type"),
+                "data_length": len(str(data.get("data", ""))),
+                "elapsed": data.get("elapsed", 0)
+            }
+
+        return data
+
+
+def demo_basic_html_parsing() -> None:
+    """Demonstrate basic HTML parsing with predefined rules."""
+    print("=== Basic HTML Parsing Demo ===")
+
+    # Sample HTML content
+    html_content = """
+    <html>
+    <head><title>Test Page</title></head>
+    <body>
+        <h1>Welcome to Test Page</h1>
+        <div class="content">
+            <p>This is a test paragraph.</p>
+            <ul class="items">
+                <li class="item" data-id="1">Item 1</li>
+                <li class="item" data-id="2">Item 2</li>
+                <li class="item" data-id="3">Item 3</li>
+            </ul>
+        </div>
+        <div class="metadata">
+            <span class="author">John Doe</span>
+            <span class="date">2024-01-15</span>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Define extraction rules
+    rules = [
+        ExtractionRule(
+            name="title",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="title",
+            required=True
+        ),
+        ExtractionRule(
+            name="heading",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="h1"
+        ),
+        ExtractionRule(
+            name="items",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".item",
+            multiple=True
+        ),
+        ExtractionRule(
+            name="item_ids",
+            method=ExtractionMethod.ATTRIBUTE,
+            selector=".item",
+            attribute="data-id",
+            multiple=True
+        ),
+        ExtractionRule(
+            name="author",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".author"
+        ),
+        ExtractionRule(
+            name="date",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".date"
+        )
+    ]
+
+    # Create parser stage
+    parser = HTMLParserStage(
+        name="BasicParser",
+        extraction_rules=rules,
+        input_field="html_content",
+        output_field="parsed_data"
+    )
+
+    # Create pipeline
+    pipeline = PipelineRunner([parser])
+
+    # Input data
+    input_data = {"html_content": html_content, "source_url": "https://example.com/test"}
+    input_messages = [create_data_message(input_data)]
+
+    print("HTML content to parse:")
+    print(html_content[:200] + "..." if len(html_content) > 200 else html_content)

@@ -1,0 +1,115 @@
+# Production Pipeline Configuration
+
+pipeline:
+  name: "Production Analytics Pipeline"
+  max_workers: 8
+  batch_size: 500
+  processing_timeout: 60.0
+  enable_monitoring: true
+  enable_dashboard: true
+  auto_start: true
+
+sources:
+  rss_news:
+    type: rss
+    url: "https://feeds.bbci.co.uk/news/rss.xml"
+    poll_interval: 300  # 5 minutes
+    timeout: 30
+
+  api_weather:
+    type: api
+    base_url: "https://api.openweathermap.org/data/2.5"
+    endpoints:
+      - name: "weather"
+        path: "/weather"
+        method: "GET"
+        params:
+          q: "London"
+          appid: "${OPENWEATHER_API_KEY}"
+    poll_interval: 600  # 10 minutes
+    auth_type: api_key
+
+  log_files:
+    type: log_file
+    paths:
+      - "/var/log/application.log"
+      - "/var/log/nginx/access.log"
+    pattern: ".*"
+    rotation_detection: true
+
+processing_stages:
+  - type: enrichment
+    name: "data_enrichment"
+    config:
+      add_timestamps: true
+      add_source_metadata: true
+
+  - type: transformation
+    name: "data_transformation"
+    config:
+      validation_rules:
+        - field: "timestamp"
+          type: "datetime"
+          required: true
+      field_mappings:
+        "title": "headline"
+        "description": "summary"
+
+  - type: aggregation
+    name: "data_aggregation"
+    config:
+      window_type: "tumbling"
+      window_size: 3600  # 1 hour
+      aggregations:
+        - field: "requests"
+          functions: ["count", "sum"]
+        - field: "response_time"
+          functions: ["avg", "min", "max"]
+
+  - type: quality
+    name: "data_quality"
+    config:
+      completeness_threshold: 0.95
+      accuracy_checks:
+        - field: "timestamp"
+          rule: "not_null"
+        - field: "source"
+          rule: "in_list"
+          values: ["rss", "api", "log"]
+
+storage_backends:
+  primary:
+    backend_type: sqlite
+    connection_string: "sqlite:///data/pipeline.db"
+    max_connections: 10
+    enable_metrics: true
+
+  archive:
+    backend_type: sqlite
+    connection_string: "sqlite:///data/archive.db"
+    max_connections: 5
+
+export_configs:
+  daily_csv:
+    format: csv
+    output_path: "/exports/daily_report_{date}.csv"
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    filters:
+      date_field: "timestamp"
+      date_range: "1 day"
+
+  weekly_parquet:
+    format: parquet
+    output_path: "/exports/weekly_report_{date}.parquet"
+    schedule: "0 3 * * 1"  # Weekly on Monday at 3 AM
+    compression: snappy
+
+dashboard_config:
+  title: "Production Analytics Dashboard"
+  refresh_interval: 60
+  max_metrics_history: 5000
+  enable_alerts: true
+  alert_thresholds:
+    error_rate: 0.05
+    min_throughput: 10
+    storage_threshold: 85.0

@@ -1,0 +1,31 @@
+            # If processing is fast, allow larger batches
+            if avg_time < 0.1:  # Fast processing
+                target_size = min(self.config.max_batch_size, len(self._current_batch) * 2)
+                if batch_size >= target_size:
+                    return True
+
+            # If processing is slow, flush smaller batches
+            elif avg_time > 1.0:  # Slow processing
+                target_size = max(self.config.min_batch_size, self.config.max_batch_size // 2)
+                if batch_size >= target_size:
+                    return True
+
+        # Time-based flushing
+        elapsed = time.time() - self._last_flush_time
+        if elapsed >= self.config.max_wait_time:
+            return batch_size >= self.config.min_batch_size
+
+        return False
+
+    def _process_batch(self, items: List[Any]) -> BatchResult:
+        """Process batch with performance tracking."""
+        result = super()._process_batch(items)
+
+        # Track performance for adaptive sizing
+        if result.processing_time > 0:
+            self._recent_performance.append(result.processing_time)
+            if len(self._recent_performance) > self._performance_window:
+                self._recent_performance.pop(0)
+
+        return result
+

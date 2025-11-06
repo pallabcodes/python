@@ -1,0 +1,160 @@
+"""
+HTML Parser pipeline stage.
+
+This module provides pipeline stages for parsing HTML content and
+extracting structured data using configurable extraction rules.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional
+
+from ..pipeline_core.stage_types import TransformStage
+from .extractor import HTMLExtractor, ExtractionRule, create_extraction_rules
+
+
+class HTMLParserStage(TransformStage):
+    """Pipeline stage for parsing HTML and extracting structured data."""
+
+    def __init__(
+        self,
+        name: str,
+        extraction_rules: List[ExtractionRule],
+        input_field: str = "data",
+        output_field: str = "extracted_data"
+    ):
+        """Initialize HTML parser stage.
+
+        Args:
+            name: Stage name for identification
+            extraction_rules: Rules for extracting data from HTML
+            input_field: Field name containing HTML content in input data
+            output_field: Field name for extracted data in output
+        """
+        super().__init__(name)
+        self.extraction_rules = extraction_rules
+        self.input_field = input_field
+        self.output_field = output_field
+
+        # Initialize extractor
+        self._extractor = HTMLExtractor(extraction_rules)
+
+        # Statistics
+        self._documents_processed = 0
+        self._extraction_success = 0
+        self._extraction_errors = 0
+
+    def transform(self, data: Any) -> Any:
+        """Parse HTML and extract structured data.
+
+        Args:
+            data: Input data containing HTML content
+
+        Returns:
+            Data with extracted structured information
+        """
+        self._documents_processed += 1
+
+        try:
+            # Extract HTML content from input data
+            html_content = self._get_html_content(data)
+            if not html_content:
+                return self._create_error_result(data, "No HTML content found")
+
+            # Extract data using configured rules
+            extracted_data = self._extractor.extract(html_content)
+
+            # Check extraction success
+            if extracted_data.get("_extraction_success", False):
+                self._extraction_success += 1
+            else:
+                self._extraction_errors += 1
+
+            # Create result with extracted data
+            result = dict(data)  # Copy original data
+            result[self.output_field] = extracted_data
+
+            # Log extraction summary
+            errors = extracted_data.get("_extraction_errors", [])
+            if errors:
+                self._logger.warning(
+                    f"HTML extraction completed with {len(errors)} errors",
+                    extra={
+                        "stage_name": self.name,
+                        "extraction_errors": len(errors),
+                        "document_number": self._documents_processed
+                    }
+                )
+            else:
+                self._logger.debug(
+                    f"HTML extraction successful",
+                    extra={
+                        "stage_name": self.name,
+                        "document_number": self._documents_processed
+                    }
+                )
+
+            return result
+
+        except Exception as e:
+            self._extraction_errors += 1
+
+            self._logger.error(
+                f"HTML parsing failed: {e}",
+                extra={
+                    "stage_name": self.name,
+                    "error_type": type(e).__name__,
+                    "document_number": self._documents_processed
+                },
+                exc_info=True
+            )
+
+            return self._create_error_result(data, str(e))
+
+    def _get_html_content(self, data: Any) -> Optional[str]:
+        """Extract HTML content from input data.
+
+        Args:
+            data: Input data dictionary or string
+
+        Returns:
+            HTML content as string or None if not found
+        """
+        if isinstance(data, str):
+            return data
+
+        if isinstance(data, dict):
+            # Try to get HTML from configured input field
+            if self.input_field in data:
+                content = data[self.input_field]
+                if isinstance(content, str):
+                    return content
+                elif isinstance(content, bytes):
+                    return content.decode('utf-8', errors='ignore')
+
+            # Fallback: look for common HTML fields
+            for field in ['html', 'content', 'body', 'text']:
+                if field in data and isinstance(data[field], str):
+                    return data[field]
+
+        return None
+
+    def _create_error_result(self, original_data: Any, error_message: str) -> Dict[str, Any]:
+        """Create error result for failed parsing.
+
+        Args:
+            original_data: Original input data
+            error_message: Error description
+
+        Returns:
+            Error result dictionary
+        """
+        if isinstance(original_data, dict):
+            result = dict(original_data)
+        else:
+            result = {"original_input": original_data}
+
+        result[self.output_field] = {
+            "_extraction_success": False,
+            "_extraction_errors": [error_message],
+            "_parser_error": error_message
+        }

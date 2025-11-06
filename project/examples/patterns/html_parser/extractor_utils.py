@@ -1,0 +1,56 @@
+"""
+HTML extractor utility functions.
+
+This module contains utility functions for creating extraction rules
+and performing data extraction operations.
+"""
+
+from typing import Any, Dict, List
+
+from .extractor_core import ExtractionRule, ExtractionMethod, HTMLExtractor
+
+
+def create_extraction_rules(rules_config: List[Dict[str, Any]]) -> List[ExtractionRule]:
+    """Create extraction rules from configuration.
+
+    Args:
+        rules_config: List of rule configuration dictionaries
+
+    Returns:
+        List of ExtractionRule objects
+    """
+    rules = []
+
+    for config in rules_config:
+        # Convert string method to enum
+        method_str = config.get("method", "css_selector")
+        method = ExtractionMethod(method_str.upper()) if isinstance(method_str, str) else method_str
+
+        rule = ExtractionRule(
+            name=config["name"],
+            method=method,
+            selector=config.get("selector", ""),
+            attribute=config.get("attribute"),
+            multiple=config.get("multiple", False),
+            required=config.get("required", False),
+            default_value=config.get("default_value"),
+            transform=config.get("transform")
+        )
+        rules.append(rule)
+
+    return rules
+
+
+def extract_data(html_content: str, rules: List[ExtractionRule]) -> Dict[str, Any]:
+    """Convenience function to extract data from HTML.
+
+    Args:
+        html_content: HTML content to parse
+        rules: Extraction rules to apply
+
+    Returns:
+        Dictionary of extracted data
+    """
+    extractor = HTMLExtractor(rules)
+    return extractor.extract(html_content)
+

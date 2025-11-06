@@ -1,0 +1,34 @@
+
+        Returns:
+            Error result dictionary
+        """
+        if isinstance(original_data, dict):
+            result = dict(original_data)
+        else:
+            result = {"original_input": original_data}
+
+        result[self.output_field] = {
+            "_extraction_success": False,
+            "_extraction_errors": [error_message],
+            "_parser_error": error_message
+        }
+
+        return result
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get configurable parser statistics."""
+        total_processed = self._extraction_success + self._extraction_errors
+        success_rate = (self._extraction_success / total_processed * 100) if total_processed > 0 else 0
+
+        return {
+            "stage_name": self.name,
+            "documents_processed": self._documents_processed,
+            "extraction_success": self._extraction_success,
+            "extraction_errors": self._extraction_errors,
+            "success_rate": success_rate,
+            "input_field": self.input_field,
+            "output_field": self.output_field,
+            "rules_field": self.rules_field,
+            "has_default_rules": len(self.default_rules) > 0
+        }
+

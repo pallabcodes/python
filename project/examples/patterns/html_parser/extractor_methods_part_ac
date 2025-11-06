@@ -1,0 +1,13 @@
+
+
+def _get_element_value(self: 'HTMLExtractor', element: Any, attribute: Optional[str]) -> Any:
+    """Get value from HTML element."""
+    if attribute:
+        return element.get(attribute, "")
+    else:
+        return element.get_text(strip=True)
+
+
+# Import utility functions
+from .extractor_utils import create_extraction_rules, extract_data
+

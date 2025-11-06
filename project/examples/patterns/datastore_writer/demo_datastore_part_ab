@@ -1,0 +1,160 @@
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Count total records
+        cursor.execute("SELECT COUNT(*) FROM batch_data")
+        total_count = cursor.fetchone()[0]
+
+        # Count batches (assuming batch_id indicates batch)
+        cursor.execute("SELECT COUNT(DISTINCT batch_id) FROM batch_data")
+        batch_count = cursor.fetchone()[0]
+
+        conn.close()
+
+        print("
+Database Results:")
+        print(f"  Total records: {total_count}")
+        print(f"  Batches processed: {batch_count}")
+
+        # Show batch writer stats
+        batch_stats = writer.get_stats()['batch_stats']
+        if batch_stats:
+            print("
+Batch Statistics:")
+            print(f"  Total batches: {batch_stats['total_batches']}")
+            print(f"  Successful batches: {batch_stats['successful_batches']}")
+            print(".1f"
+    except Exception as e:
+        print(f"Demo failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        try:
+            os.close(db_fd)
+            os.unlink(db_path)
+        except:
+            pass
+
+
+def demo_transaction_management() -> None:
+    """Demonstrate transaction management."""
+    print("\n=== Transaction Management Demo ===")
+
+    # Create database
+    db_fd, db_path = tempfile.mkstemp(suffix='.db')
+
+    try:
+        create_table = """
+        CREATE TABLE accounts (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            balance REAL
+        )
+        """
+
+        # Create writer with transactions enabled
+        writer = create_sqlite_writer(
+            name="TransactionalWriter",
+            db_path=db_path,
+            table_name="accounts",
+            create_table_sql=create_table,
+            enable_transactions=True,
+            isolation_level=IsolationLevel.SERIALIZABLE
+        )
+
+        # Simulate financial transactions
+        account_data = [
+            {"id": 1, "name": "Alice", "balance": 1000.0},
+            {"id": 2, "name": "Bob", "balance": 500.0},
+            {"id": 3, "name": "Charlie", "balance": 750.0}
+        ]
+
+        # Create custom pipeline stage that simulates transactional work
+        class TransactionalProcessor:
+            def __init__(self, datastore_writer):
+                self.writer = datastore_writer
+
+            def process(self, data):
+                # This would normally be part of the pipeline
+                # For demo, we'll manually write with transaction
+                try:
+                    # Simulate business logic that requires transaction
+                    if isinstance(data, list):
+                        # Write all accounts in a transaction
+                        with self.writer._transaction_manager.transaction() as conn:
+                            for account in data:
+                                self.writer.backend.execute_write(conn, account)
+
+                        print(f"Transactionally wrote {len(data)} accounts")
+                        return {"status": "success", "accounts_written": len(data)}
+                    else:
+                        self.writer.consume(data)
+                        return {"status": "success", "single_write": True}
+
+                except Exception as e:
+                    return {"status": "error", "error": str(e)}
+
+        processor = TransactionalProcessor(writer)
+
+        print("Demonstrating transaction management...")
+        print("Writing account data with transactional guarantees")
+
+        # Process data
+        result = processor.process(account_data)
+
+        print(f"Transaction result: {result}")
+
+        # Verify data was written
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*), SUM(balance) FROM accounts")
+        count, total_balance = cursor.fetchone()
+        conn.close()
+
+        print("
+Database verification:")
+        print(f"  Accounts created: {count}")
+        print(".2f"
+    except Exception as e:
+        print(f"Demo failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        try:
+            os.close(db_fd)
+            os.unlink(db_path)
+        except:
+            pass
+
+
+def demo_connection_pooling() -> None:
+    """Demonstrate connection pool management."""
+    print("\n=== Connection Pooling Demo ===")
+
+    # Create database
+    db_fd, db_path = tempfile.mkstemp(suffix='.db')
+
+    try:
+        create_table = """
+        CREATE TABLE pool_test (
+            id INTEGER PRIMARY KEY,
+            data TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+
+        # Create writer with connection pooling
+        pool_config = PoolConfig(
+            max_connections=3,
+            min_connections=1,
+            max_idle_time=30.0,
+            health_check_interval=10.0
+        )
+
+        writer = create_sqlite_writer(
+            name="PooledWriter",
+            db_path=db_path,
+            table_name="pool_test",

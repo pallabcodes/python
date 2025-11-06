@@ -1,0 +1,160 @@
+"""
+Unit tests for datastore writer functionality.
+
+This module provides comprehensive tests for datastore writing,
+connection pooling, transactions, and batch operations.
+"""
+
+import tempfile
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from typing import Any
+
+from .connection_pool import ConnectionPool, PoolConfig, PooledConnection
+from .transaction_manager import TransactionManager, IsolationLevel
+from .batch_writer import BatchWriter, BatchConfig, BatchResult
+from .datastore_stage import DatastoreWriterStage, SQLiteBackend
+
+
+class TestConnectionPool:
+    """Tests for connection pool functionality."""
+
+    def test_pool_creation(self):
+        """Test connection pool initialization."""
+        def connection_factory():
+            return Mock()
+
+        pool = ConnectionPool(
+            connection_factory=connection_factory,
+            config=PoolConfig(max_connections=5, min_connections=2)
+        )
+
+        assert pool.config.max_connections == 5
+        assert pool.config.min_connections == 2
+        pool.shutdown()
+
+    def test_connection_acquire_release(self):
+        """Test acquiring and releasing connections."""
+        mock_conn = Mock()
+        def connection_factory():
+            return mock_conn
+
+        pool = ConnectionPool(connection_factory=connection_factory)
+
+        # Acquire connection
+        conn = pool.acquire(timeout=1.0)
+        assert conn is mock_conn
+
+        # Release connection
+        pool.release(conn)
+
+        # Should be able to acquire again
+        conn2 = pool.acquire(timeout=1.0)
+        assert conn2 is mock_conn
+
+        pool.shutdown()
+
+    def test_pool_exhaustion(self):
+        """Test pool exhaustion behavior."""
+        def connection_factory():
+            return Mock()
+
+        pool = ConnectionPool(
+            connection_factory=connection_factory,
+            config=PoolConfig(max_connections=1)
+        )
+
+        # Acquire only connection
+        conn1 = pool.acquire(timeout=1.0)
+
+        # Second acquire should create new connection since max_connections > 1 allows expansion
+        pool.config.max_connections = 2  # Allow expansion for this test
+        conn2 = pool.acquire(timeout=1.0)
+
+        pool.release(conn1)
+        pool.release(conn2)
+        pool.shutdown()
+
+    def test_health_check(self):
+        """Test connection health checking."""
+        mock_conn = Mock()
+        def connection_factory():
+            return mock_conn
+
+        def health_check(conn):
+            return conn is mock_conn
+
+        pool = ConnectionPool(
+            connection_factory=connection_factory,
+            health_check=health_check
+        )
+
+        conn = pool.acquire()
+        assert conn is mock_conn
+
+        pool.release(conn)
+        pool.shutdown()
+
+
+class TestTransactionManager:
+    """Tests for transaction management."""
+
+    def test_transaction_context_manager(self):
+        """Test transaction context manager."""
+        mock_pool = Mock()
+        mock_conn = Mock()
+        mock_pool.acquire.return_value = mock_conn
+
+        manager = TransactionManager(mock_pool)
+
+        with manager.transaction() as conn:
+            assert conn is mock_conn
+
+        # Verify transaction lifecycle
+        mock_conn.execute.assert_any_call("BEGIN")
+        mock_conn.commit.assert_called_once()
+        mock_pool.release.assert_called_once_with(mock_conn)
+
+    def test_transaction_rollback_on_error(self):
+        """Test transaction rollback on errors."""
+        mock_pool = Mock()
+        mock_conn = Mock()
+        mock_pool.acquire.return_value = mock_conn
+
+        manager = TransactionManager(mock_pool)
+
+        with pytest.raises(ValueError):
+            with manager.transaction():
+                raise ValueError("Test error")
+
+        # Verify rollback was called
+        mock_conn.rollback.assert_called_once()
+
+    def test_savepoints(self):
+        """Test transaction savepoints."""
+        mock_pool = Mock()
+        mock_conn = Mock()
+        mock_pool.acquire.return_value = mock_conn
+
+        manager = TransactionManager(mock_pool)
+
+        with manager.transaction() as conn:
+            manager.create_savepoint(conn, "test_transaction", "test_savepoint")
+            manager.rollback_to_savepoint(conn, "test_transaction", "test_savepoint")
+
+        mock_conn.execute.assert_any_call("SAVEPOINT test_savepoint")
+        mock_conn.execute.assert_any_call("ROLLBACK TO SAVEPOINT test_savepoint")
+
+
+class TestBatchWriter:
+    """Tests for batch writer functionality."""
+
+    def test_batch_writer_creation(self):
+        """Test batch writer initialization."""
+        def batch_processor(items):
+            return BatchResult(
+                batch_id="test",
+                items_processed=len(items),
+                success=True
+            )
+

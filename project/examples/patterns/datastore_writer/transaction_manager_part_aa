@@ -1,0 +1,160 @@
+"""
+Transaction management for database operations.
+
+This module provides transaction support with automatic rollback,
+savepoints, and nested transaction handling for reliable data operations.
+"""
+
+import logging
+from typing import Any, Optional, Callable, Dict, List, ContextManager
+from contextlib import contextmanager
+from dataclasses import dataclass
+from enum import Enum
+
+
+class IsolationLevel(Enum):
+    """Database isolation levels."""
+    READ_UNCOMMITTED = "READ UNCOMMITTED"
+    READ_COMMITTED = "READ COMMITTED"
+    REPEATABLE_READ = "REPEATABLE READ"
+    SERIALIZABLE = "SERIALIZABLE"
+
+
+class TransactionState(Enum):
+    """Transaction states."""
+    ACTIVE = "active"
+    COMMITTED = "committed"
+    ROLLED_BACK = "rolled_back"
+    FAILED = "failed"
+
+
+@dataclass
+class TransactionContext:
+    """Context information for transactions."""
+    transaction_id: str
+    isolation_level: Optional[IsolationLevel]
+    start_time: float
+    state: TransactionState = TransactionState.ACTIVE
+    savepoints: List[str] = None
+    nested_level: int = 0
+
+    def __post_init__(self):
+        """Initialize mutable fields."""
+        if self.savepoints is None:
+            self.savepoints = []
+
+
+class TransactionError(Exception):
+    """Transaction-related exception."""
+    pass
+
+
+class TransactionManager:
+    """Manages database transactions with automatic cleanup."""
+
+    def __init__(self, connection_pool: Any):
+        """Initialize transaction manager.
+
+        Args:
+            connection_pool: Connection pool to manage transactions for
+        """
+        self._pool = connection_pool
+        self._active_transactions: Dict[str, TransactionContext] = {}
+        self._logger = logging.getLogger(__name__)
+
+    @contextmanager
+    def transaction(
+        self,
+        isolation_level: Optional[IsolationLevel] = None,
+        readonly: bool = False
+    ):
+        """Context manager for database transactions.
+
+        Args:
+            isolation_level: Transaction isolation level
+            readonly: Whether transaction is read-only
+
+        Yields:
+            Connection with active transaction
+        """
+        conn = None
+        transaction_id = None
+
+        try:
+            conn = self._pool.acquire()
+            transaction_id = self._begin_transaction(conn, isolation_level, readonly)
+
+            yield conn
+
+            self._commit_transaction(conn, transaction_id)
+
+        except Exception as e:
+            if conn and transaction_id:
+                try:
+                    self._rollback_transaction(conn, transaction_id)
+                except Exception as rollback_error:
+                    self._logger.error(f"Rollback failed: {rollback_error}")
+
+            raise TransactionError(f"Transaction failed: {e}") from e
+
+        finally:
+            if conn:
+                self._pool.release(conn)
+
+    def _begin_transaction(
+        self,
+        conn: Any,
+        isolation_level: Optional[IsolationLevel],
+        readonly: bool
+    ) -> str:
+        """Begin a new transaction.
+
+        Args:
+            conn: Database connection
+            isolation_level: Transaction isolation level
+            readonly: Whether transaction is read-only
+
+        Returns:
+            Transaction ID
+        """
+        import uuid
+        transaction_id = str(uuid.uuid4())
+
+        context = TransactionContext(
+            transaction_id=transaction_id,
+            isolation_level=isolation_level,
+            start_time=__import__('time').time()
+        )
+
+        self._active_transactions[transaction_id] = context
+
+        try:
+            # Set isolation level if specified
+            if isolation_level:
+                self._set_isolation_level(conn, isolation_level)
+
+            # Set read-only if specified
+            if readonly:
+                self._set_readonly(conn, readonly)
+
+            # Begin transaction
+            self._execute_begin(conn)
+
+            self._logger.debug(
+                f"Started transaction {transaction_id}",
+                extra={"transaction_id": transaction_id, "isolation_level": isolation_level}
+            )
+
+            return transaction_id
+
+        except Exception as e:
+            del self._active_transactions[transaction_id]
+            raise TransactionError(f"Failed to begin transaction: {e}") from e
+
+    def _commit_transaction(self, conn: Any, transaction_id: str) -> None:
+        """Commit a transaction.
+
+        Args:
+            conn: Database connection
+            transaction_id: Transaction to commit
+        """

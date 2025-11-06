@@ -1,0 +1,176 @@
+# Real-Time Multi-Source Analytics Pipeline Configuration
+# Example configuration for production deployment
+
+pipeline:
+  name: "Production Analytics Pipeline"
+  max_workers: 10
+  batch_size: 100
+  processing_timeout: 30.0
+  enable_monitoring: true
+  enable_dashboard: true
+  auto_start: true
+
+# Data sources configuration
+sources:
+  rss_feeds:
+    name: "news_aggregator"
+    feed_urls:
+      - "https://feeds.bbci.co.uk/news/rss.xml"
+      - "https://rss.cnn.com/rss/edition.rss.xml"
+      - "https://feeds.npr.org/1001/rss.xml"
+    feed_names:
+      - "bbc_news"
+      - "cnn_news"
+      - "npr_news"
+    poll_interval: 300  # 5 minutes
+    max_entries: 50
+    enabled: true
+
+  api_client:
+    name: "data_api"
+    endpoints:
+      - name: "github_events"
+        url: "https://api.github.com/events"
+        method: "GET"
+        poll_interval: 60  # 1 minute
+        timeout: 30
+        enabled: true
+
+# Processing stages configuration
+processing_stages:
+  - type: "enrichment"
+    name: "data_enrichment"
+    config:
+      add_timestamps: true
+      add_message_hash: true
+      add_processing_metadata: true
+
+  - type: "transformation"
+    name: "data_transformation"
+    config:
+      field_mappings:
+        "data.link": "data.url"
+        "data.published": "data.publish_date"
+      type_conversions:
+        "data.timestamp": "float"
+      sanitize_text: true
+      normalize_timestamps: true
+      validation_rules:
+        - field: "data.timestamp"
+          type: "range"
+          min: 1609459200  # 2021-01-01
+        - field: "data.source_type"
+          type: "required"
+
+  - type: "aggregation"
+    name: "real_time_analytics"
+    config:
+      windows:
+        - name: "message_rate"
+          type: "sliding"
+          size_seconds: 300  # 5 minutes
+          functions: ["count", "rate_per_second"]
+          group_by_fields: ["data.source_type"]
+
+        - name: "error_tracking"
+          type: "tumbling"
+          size_seconds: 3600  # 1 hour
+          functions: ["count", "avg"]
+          group_by_fields: ["metadata.stage_name"]
+
+  - type: "quality"
+    name: "data_quality"
+    config:
+      required_fields:
+        - "data.timestamp"
+        - "data.source_type"
+      rules:
+        - name: "timestamp_validity"
+          type: "range"
+          field_path: "data.timestamp"
+          params:
+            min: 1609459200  # 2021-01-01
+          severity: "error"
+
+        - name: "content_completeness"
+          type: "completeness"
+          field_path: "data.content"
+          severity: "warning"
+
+# Storage backends configuration
+storage_backends:
+  primary:
+    backend_type: "sqlite"
+    connection_string: "sqlite:///data/pipeline.db"
+    max_connections: 10
+    enable_metrics: true
+    journal_mode: "WAL"
+    synchronous_mode: "NORMAL"
+    cache_size: -64000  # 64MB
+
+  cache:
+    backend_type: "cache"
+    connection_string: "cache://memory"
+    max_size: 10000
+    default_ttl: 3600  # 1 hour
+    enable_metrics: true
+
+  archive:
+    backend_type: "json"
+    connection_string: "json:///data/archive"
+    enable_compression: true
+    max_connections: 5
+
+# Dashboard configuration
+dashboard:
+  title: "Production Analytics Pipeline Dashboard"
+  refresh_interval: 30
+  max_metrics_history: 1000
+  enable_alerts: true
+  alert_thresholds:
+    error_rate: 0.05
+    min_throughput: 10.0
+    storage_threshold: 85.0
+
+# Export configuration
+export:
+  default_format: "parquet"
+  compression: "snappy"
+  output_directory: "/data/exports"
+  schedule:
+    daily_summary:
+      enabled: true
+      time: "02:00"  # 2 AM daily
+      collections: ["messages", "metrics"]
+      format: "parquet"
+    weekly_report:
+      enabled: true
+      day: "monday"
+      time: "03:00"
+      collections: ["analytics"]
+      format: "csv"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics_interval: 60  # seconds
+  health_check_interval: 300  # 5 minutes
+  log_level: "INFO"
+  exporters:
+    - type: "prometheus"
+      endpoint: "http://localhost:9090"
+    - type: "json"
+      file_path: "/data/metrics/metrics.json"
+
+# API configuration
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["*"]
+  authentication:
+    enabled: false  # Enable for production
+    type: "jwt"
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 1000

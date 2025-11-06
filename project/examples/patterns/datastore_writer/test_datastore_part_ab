@@ -1,0 +1,160 @@
+        writer = BatchWriter(
+            batch_processor=batch_processor,
+            config=BatchConfig(max_batch_size=10)
+        )
+
+        assert writer.config.max_batch_size == 10
+
+    def test_batch_accumulation_and_flush(self):
+        """Test batch accumulation and flushing."""
+        processed_batches = []
+
+        def batch_processor(items):
+            result = BatchResult(
+                batch_id=f"batch_{len(processed_batches)}",
+                items_processed=len(items),
+                success=True
+            )
+            processed_batches.append(items)
+            return result
+
+        writer = BatchWriter(batch_processor=batch_processor)
+
+        # Add items
+        for i in range(7):
+            writer.add_item(f"item_{i}")
+
+        # Should not flush yet (under min batch size)
+        assert len(writer._current_batch) == 7
+
+        # Add more to trigger flush
+        for i in range(4):
+            writer.add_item(f"item_{7+i}")
+
+        # Should flush automatically
+        assert len(processed_batches) == 1
+        assert len(processed_batches[0]) == 10
+
+        # Force flush remaining
+        writer.force_flush()
+        assert len(processed_batches) == 2
+        assert len(processed_batches[1]) == 1
+
+    def test_batch_error_handling(self):
+        """Test batch error handling and retries."""
+        call_count = 0
+
+        def failing_processor(items):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # Fail first attempt
+                return BatchResult(
+                    batch_id="test",
+                    items_processed=0,
+                    success=False,
+                    error="Test failure"
+                )
+            else:
+                # Succeed on retry
+                return BatchResult(
+                    batch_id="test",
+                    items_processed=len(items),
+                    success=True
+                )
+
+        writer = BatchWriter(
+            batch_processor=failing_processor,
+            config=BatchConfig(max_batch_size=5, retry_failed_batches=True, max_retries=3)
+        )
+
+        writer.add_items([f"item_{i}" for i in range(5)])
+
+        # Should have retried
+        assert call_count == 2
+
+
+class TestSQLiteBackend:
+    """Tests for SQLite backend."""
+
+    def test_sqlite_backend_creation(self):
+        """Test SQLite backend initialization."""
+        backend = SQLiteBackend(
+            db_path=":memory:",
+            table_name="test_table",
+            create_table_sql="CREATE TABLE test_table (id INTEGER)"
+        )
+
+        assert backend.name == "sqlite"
+        assert backend.db_path == ":memory:"
+        assert backend.table_name == "test_table"
+
+    def test_connection_factory(self):
+        """Test SQLite connection factory."""
+        backend = SQLiteBackend(":memory:", "test")
+
+        factory = backend.create_connection_factory()
+        conn = factory()
+
+        # Should be able to execute SQL
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        assert result[0] == 1
+
+        conn.close()
+
+    def test_health_check(self):
+        """Test SQLite health check."""
+        backend = SQLiteBackend(":memory:", "test")
+
+        factory = backend.create_connection_factory()
+        conn = factory()
+
+        health_check = backend.create_health_check()
+        assert health_check(conn) is True
+
+        conn.close()
+
+
+class TestDatastoreWriterStage:
+    """Tests for datastore writer stage."""
+
+    def test_writer_stage_creation(self):
+        """Test writer stage initialization."""
+        backend = SQLiteBackend(":memory:", "test")
+        stage = DatastoreWriterStage(
+            name="TestWriter",
+            backend=backend,
+            enable_transactions=False
+        )
+
+        assert stage.name == "TestWriter"
+        assert stage.backend is backend
+        assert not stage.enable_transactions
+
+    def test_writer_statistics(self):
+        """Test writer statistics collection."""
+        backend = SQLiteBackend(":memory:", "test")
+        stage = DatastoreWriterStage(name="TestWriter", backend=backend)
+
+        stats = stage.get_stats()
+        assert stats["stage_name"] == "TestWriter"
+        assert stats["backend"] == "sqlite"
+        assert stats["items_written"] == 0
+
+    @patch('datastore_stage.DatastoreWriterStage._write_single_item')
+    def test_consume_method(self, mock_write):
+        """Test consume method calls write."""
+        backend = SQLiteBackend(":memory:", "test")
+        stage = DatastoreWriterStage(name="TestWriter", backend=backend)
+
+        # Mock initialization
+        stage._connection_pool = Mock()
+
+        stage.consume({"test": "data"})
+        mock_write.assert_called_once_with({"test": "data"})
+
+
+class TestIntegration:
+    """Integration tests combining multiple components."""

@@ -1,0 +1,19 @@
+            "acquired": self._acquired_count,
+            "released": self._released_count,
+            "shutdown": self._shutdown,
+            "config": {
+                "max_connections": self.config.max_connections,
+                "min_connections": self.config.min_connections,
+                "max_idle_time": self.config.max_idle_time,
+                "max_lifetime": self.config.max_lifetime
+            }
+        }
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.shutdown()
+

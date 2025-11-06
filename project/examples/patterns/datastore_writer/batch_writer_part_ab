@@ -1,0 +1,160 @@
+            if elapsed >= self.config.max_wait_time:
+                return batch_size >= self.config.min_batch_size
+
+        return False
+
+    def _process_batch(self, items: List[Any]) -> BatchResult:
+        """Process a batch of items.
+
+        Args:
+            items: Items to process
+
+        Returns:
+            Batch processing result
+        """
+        self._batch_id_counter += 1
+        batch_id = f"batch_{self._batch_id_counter}"
+
+        self._logger.debug(
+            f"Processing batch {batch_id} with {len(items)} items",
+            extra={"batch_id": batch_id, "batch_size": len(items)}
+        )
+
+        start_time = time.time()
+
+        try:
+            result = self._batch_processor(items)
+
+            # Update result with timing
+            result.batch_id = batch_id
+            result.processing_time = time.time() - start_time
+
+            # Update statistics
+            self._total_batches += 1
+            if result.is_successful:
+                self._successful_batches += 1
+            else:
+                self._failed_batches += 1
+
+            self._total_processing_time += result.processing_time
+
+            self._logger.debug(
+                f"Batch {batch_id} completed: {result.success} "
+                f"({result.items_processed}/{len(items)} items, "
+                f"{result.processing_time:.2f}s)",
+                extra={
+                    "batch_id": batch_id,
+                    "success": result.success,
+                    "items_processed": result.items_processed,
+                    "processing_time": result.processing_time
+                }
+            )
+
+            # Retry failed batches if configured
+            if not result.success and self.config.retry_failed_batches and result.retry_count < self.config.max_retries:
+                self._logger.info(f"Retrying failed batch {batch_id}")
+                result.retry_count += 1
+                return self._retry_batch(items, result)
+
+            return result
+
+        except Exception as e:
+            processing_time = time.time() - start_time
+
+            result = BatchResult(
+                batch_id=batch_id,
+                items_processed=0,
+                success=False,
+                error=str(e),
+                processing_time=processing_time
+            )
+
+            # Update statistics
+            self._total_batches += 1
+            self._failed_batches += 1
+            self._total_processing_time += processing_time
+
+            self._logger.error(
+                f"Batch {batch_id} failed: {e}",
+                extra={
+                    "batch_id": batch_id,
+                    "error": str(e),
+                    "processing_time": processing_time
+                },
+                exc_info=True
+            )
+
+            return result
+
+    def _retry_batch(self, items: List[Any], previous_result: BatchResult) -> BatchResult:
+        """Retry a failed batch.
+
+        Args:
+            items: Items to retry
+            previous_result: Previous failed result
+
+        Returns:
+            New batch result
+        """
+        # Simple retry with exponential backoff
+        delay = 2 ** previous_result.retry_count
+        time.sleep(min(delay, 30))  # Max 30 second delay
+
+        return self._process_batch(items)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get batch writer statistics."""
+        avg_processing_time = (
+            self._total_processing_time / self._total_batches
+            if self._total_batches > 0 else 0
+        )
+
+        return {
+            "total_items": self._total_items,
+            "total_batches": self._total_batches,
+            "successful_batches": self._successful_batches,
+            "failed_batches": self._failed_batches,
+            "current_batch_size": len(self._current_batch),
+            "average_processing_time": avg_processing_time,
+            "total_processing_time": self._total_processing_time,
+            "success_rate": (
+                self._successful_batches / self._total_batches * 100
+                if self._total_batches > 0 else 0
+            ),
+            "config": {
+                "strategy": self.config.strategy.value,
+                "max_batch_size": self.config.max_batch_size,
+                "max_wait_time": self.config.max_wait_time,
+                "min_batch_size": self.config.min_batch_size
+            }
+        }
+
+
+class AdaptiveBatchWriter(BatchWriter):
+    """Batch writer with adaptive batch sizing."""
+
+    def __init__(
+        self,
+        batch_processor: Callable[[List[Any]], BatchResult],
+        config: Optional[BatchConfig] = None
+    ):
+        """Initialize adaptive batch writer."""
+        super().__init__(batch_processor, config)
+        self._recent_performance: List[float] = []
+        self._performance_window = 10
+
+    def _should_flush(self) -> bool:
+        """Adaptive flushing based on recent performance."""
+        if not self._current_batch:
+            return False
+
+        batch_size = len(self._current_batch)
+
+        # Always flush if batch is full
+        if batch_size >= self.config.max_batch_size:
+            return True
+
+        # Adaptive sizing based on performance
+        if self.config.strategy == BatchStrategy.ADAPTIVE and self._recent_performance:
+            avg_time = sum(self._recent_performance) / len(self._recent_performance)
+

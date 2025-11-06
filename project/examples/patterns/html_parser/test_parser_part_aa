@@ -1,0 +1,160 @@
+"""
+Unit tests for HTML parser functionality.
+
+This module provides comprehensive tests for HTML parsing,
+data extraction, and pipeline integration.
+"""
+
+import pytest
+from unittest.mock import patch, MagicMock
+
+from .extractor import (
+    ExtractionRule, ExtractionMethod, ExtractionResult,
+    HTMLExtractor, create_extraction_rules, extract_data
+)
+from .parser_stage import HTMLParserStage, ConfigurableHTMLParserStage
+
+
+class TestExtractionRule:
+    """Tests for extraction rule configuration."""
+
+    def test_valid_rule_creation(self):
+        """Test creating a valid extraction rule."""
+        rule = ExtractionRule(
+            name="test_rule",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".test-class"
+        )
+
+        assert rule.name == "test_rule"
+        assert rule.method == ExtractionMethod.CSS_SELECTOR
+        assert rule.selector == ".test-class"
+        assert not rule.multiple
+        assert not rule.required
+
+    def test_rule_validation(self):
+        """Test rule validation requirements."""
+        # Missing name
+        with pytest.raises(ValueError):
+            ExtractionRule(
+                name="",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector=".test"
+            )
+
+        # Attribute extraction without attribute name
+        with pytest.raises(ValueError):
+            ExtractionRule(
+                name="test",
+                method=ExtractionMethod.ATTRIBUTE,
+                selector=".test"
+                # Missing attribute
+            )
+
+
+class TestHTMLExtractor:
+    """Tests for HTML data extraction."""
+
+    def test_extractor_creation(self):
+        """Test HTML extractor initialization."""
+        rules = [
+            ExtractionRule(
+                name="title",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector="title"
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        assert len(extractor.rules) == 1
+        assert extractor.rules[0].name == "title"
+
+    @patch('bs4.BeautifulSoup')
+    def test_css_selector_extraction(self, mock_bs):
+        """Test CSS selector-based extraction."""
+        # Mock BeautifulSoup
+        mock_soup = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_text.return_value = "Test Title"
+        mock_soup.select.return_value = [mock_element]
+
+        mock_bs.return_value = mock_soup
+
+        rules = [
+            ExtractionRule(
+                name="title",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector="title"
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = "<html><head><title>Test Title</title></head></html>"
+        result = extractor.extract(html)
+
+        assert result["title"] == "Test Title"
+        assert result["_extraction_success"] is True
+
+    def test_regex_extraction(self):
+        """Test regex-based data extraction."""
+        rules = [
+            ExtractionRule(
+                name="email",
+                method=ExtractionMethod.REGEX,
+                selector=r'[\w\.-]+@[\w\.-]+\.\w+'
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = '<p>Contact: user@example.com for more info</p>'
+        result = extractor.extract(html)
+
+        assert result["email"] == "user@example.com"
+        assert result["_extraction_success"] is True
+
+    def test_multiple_extraction(self):
+        """Test extracting multiple values."""
+        rules = [
+            ExtractionRule(
+                name="items",
+                method=ExtractionMethod.REGEX,
+                selector=r'Item \d+',
+                multiple=True
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = '<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>'
+        result = extractor.extract(html)
+
+        assert result["items"] == ["Item 1", "Item 2", "Item 3"]
+        assert result["_extraction_success"] is True
+
+    def test_extraction_with_transform(self):
+        """Test extraction with data transformation."""
+        def uppercase_transform(value):
+            return str(value).upper()
+
+        rules = [
+            ExtractionRule(
+                name="title",
+                method=ExtractionMethod.REGEX,
+                selector=r'<title>(.*?)</title>',
+                transform=uppercase_transform
+            )
+        ]
+
+        extractor = HTMLExtractor(rules)
+        html = '<html><head><title>test page</title></head></html>'
+        result = extractor.extract(html)
+
+        assert result["title"] == "TEST PAGE"
+
+    def test_required_field_missing(self):
+        """Test required field validation."""
+        rules = [
+            ExtractionRule(
+                name="missing",
+                method=ExtractionMethod.CSS_SELECTOR,
+                selector=".nonexistent",
+                required=True

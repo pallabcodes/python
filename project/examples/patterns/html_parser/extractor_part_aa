@@ -1,0 +1,150 @@
+"""
+HTML data extraction utilities.
+
+This module provides utilities for extracting structured data from HTML
+documents using CSS selectors, XPath expressions, and custom extraction rules.
+"""
+
+from typing import Any, Dict, List, Optional, Union, Callable
+import re
+from dataclasses import dataclass
+from enum import Enum
+
+
+class ExtractionMethod(Enum):
+    """Methods for extracting data from HTML."""
+    CSS_SELECTOR = "css_selector"
+    XPATH = "xpath"
+    REGEX = "regex"
+    ATTRIBUTE = "attribute"
+    TEXT = "text"
+    HTML = "html"
+
+
+@dataclass
+class ExtractionRule:
+    """Rule for extracting data from HTML."""
+    name: str
+    method: ExtractionMethod
+    selector: str
+    attribute: Optional[str] = None
+    multiple: bool = False
+    required: bool = False
+    default_value: Any = None
+    transform: Optional[Callable[[Any], Any]] = None
+
+    def __post_init__(self):
+        """Validate extraction rule."""
+        if not self.name:
+            raise ValueError("Extraction rule must have a name")
+
+        if not self.selector and self.method not in [ExtractionMethod.TEXT, ExtractionMethod.HTML]:
+            raise ValueError("Selector is required for most extraction methods")
+
+        if self.method == ExtractionMethod.ATTRIBUTE and not self.attribute:
+            raise ValueError("Attribute name required for attribute extraction")
+
+
+@dataclass
+class ExtractionResult:
+    """Result of data extraction."""
+    rule_name: str
+    value: Any
+    success: bool
+    error: Optional[str] = None
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if result value is empty."""
+        if self.value is None:
+            return True
+        if isinstance(self.value, (list, str)) and len(self.value) == 0:
+            return True
+        return False
+
+
+class HTMLExtractor:
+    """Extracts structured data from HTML using various methods."""
+
+    def __init__(self, rules: List[ExtractionRule]):
+        """Initialize HTML extractor with extraction rules.
+
+        Args:
+            rules: List of extraction rules to apply
+        """
+        self.rules = rules
+        self._compiled_rules = self._compile_rules(rules)
+
+    def _compile_rules(self, rules: List[ExtractionRule]) -> Dict[str, ExtractionRule]:
+        """Compile rules into a lookup dictionary."""
+        compiled = {}
+        for rule in rules:
+            if rule.name in compiled:
+                raise ValueError(f"Duplicate extraction rule name: {rule.name}")
+            compiled[rule.name] = rule
+        return compiled
+
+    def extract(self, html_content: str) -> Dict[str, Any]:
+        """Extract data from HTML using configured rules.
+
+        Args:
+            html_content: HTML content to parse
+
+        Returns:
+            Dictionary of extracted data
+        """
+        try:
+            # Parse HTML if BeautifulSoup is available
+            soup = self._parse_html(html_content)
+
+            results = {}
+            errors = []
+
+            for rule_name, rule in self._compiled_rules.items():
+                try:
+                    result = self._apply_rule(soup, html_content, rule)
+                    results[rule_name] = result.value
+
+                    if not result.success:
+                        errors.append(f"{rule_name}: {result.error}")
+
+                    # Check required fields
+                    if rule.required and result.is_empty:
+                        errors.append(f"Required field '{rule_name}' is empty")
+
+                except Exception as e:
+                    results[rule_name] = rule.default_value
+                    errors.append(f"{rule_name}: {str(e)}")
+
+            results["_extraction_errors"] = errors
+            results["_extraction_success"] = len(errors) == 0
+
+            return results
+
+        except Exception as e:
+            return {
+                "_extraction_errors": [f"HTML parsing failed: {str(e)}"],
+                "_extraction_success": False
+            }
+
+    def _parse_html(self, html_content: str) -> Any:
+        """Parse HTML content using BeautifulSoup if available."""
+        try:
+            from bs4 import BeautifulSoup
+            return BeautifulSoup(html_content, 'html.parser')
+        except ImportError:
+            # Fallback: return raw content and disable advanced selectors
+            return html_content
+
+    def _apply_rule(self, soup: Any, html_content: str, rule: ExtractionRule) -> ExtractionResult:
+        """Apply a single extraction rule."""
+        try:
+            if rule.method == ExtractionMethod.CSS_SELECTOR:
+                return self._extract_css_selector(soup, rule)
+            elif rule.method == ExtractionMethod.XPATH:
+                return self._extract_xpath(soup, html_content, rule)
+            elif rule.method == ExtractionMethod.REGEX:
+                return self._extract_regex(html_content, rule)
+            elif rule.method == ExtractionMethod.ATTRIBUTE:
+                return self._extract_attribute(soup, rule)
+            elif rule.method == ExtractionMethod.TEXT:

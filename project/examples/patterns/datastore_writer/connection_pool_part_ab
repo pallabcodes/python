@@ -1,0 +1,160 @@
+            raise RuntimeError("Connection pool is shut down")
+
+        timeout = timeout or self.config.acquire_timeout
+
+        # Try to get existing connection
+        try:
+            pooled_conn = self._available.get(timeout=timeout)
+            pooled_conn.mark_used()
+
+            # Health check if needed
+            if pooled_conn.needs_health_check(self.config.health_check_interval):
+                if not self._check_connection_health(pooled_conn):
+                    # Connection unhealthy, try to create new one
+                    self._destroy_connection(pooled_conn)
+                    pooled_conn = self._create_connection()
+
+            with self._lock:
+                self._in_use.add(pooled_conn)
+
+            self._acquired_count += 1
+            return pooled_conn.connection
+
+        except Empty:
+            # No available connections, try to create new one
+            if len(self._in_use) < self.config.max_connections:
+                try:
+                    pooled_conn = self._create_connection()
+                    with self._lock:
+                        self._in_use.add(pooled_conn)
+                    self._acquired_count += 1
+                    return pooled_conn.connection
+                except Exception as e:
+                    self._logger.error(f"Failed to create connection: {e}")
+                    raise TimeoutError(f"No connection available within {timeout}s")
+
+            raise TimeoutError(f"No connection available within {timeout}s")
+
+    def release(self, connection: Any) -> None:
+        """Release a connection back to the pool.
+
+        Args:
+            connection: Connection to release
+        """
+        if self._shutdown:
+            # If shutting down, close connection
+            try:
+                if hasattr(connection, 'close'):
+                    connection.close()
+            except Exception:
+                pass
+            return
+
+        # Find the pooled connection
+        pooled_conn = None
+        with self._lock:
+            for pc in self._in_use:
+                if pc.connection is connection:
+                    pooled_conn = pc
+                    self._in_use.remove(pc)
+                    break
+
+        if pooled_conn:
+            # Check if connection should be destroyed
+            if (pooled_conn.age > self.config.max_lifetime or
+                not pooled_conn.is_healthy):
+                self._destroy_connection(pooled_conn)
+            else:
+                # Return to pool
+                try:
+                    self._available.put(pooled_conn, timeout=1.0)
+                    self._released_count += 1
+                except Full:
+                    # Pool is full, destroy connection
+                    self._destroy_connection(pooled_conn)
+        else:
+            self._logger.warning("Attempted to release unknown connection")
+
+    def _check_connection_health(self, pooled_conn: PooledConnection) -> bool:
+        """Check health of a pooled connection."""
+        try:
+            is_healthy = self._health_check(pooled_conn.connection)
+            pooled_conn.is_healthy = is_healthy
+            pooled_conn.last_health_check = time.time()
+            return is_healthy
+        except Exception as e:
+            self._logger.warning(f"Health check failed: {e}")
+            pooled_conn.is_healthy = False
+            return False
+
+    def _maintenance_loop(self) -> None:
+        """Background maintenance loop."""
+        while not self._shutdown:
+            try:
+                time.sleep(self.config.health_check_interval)
+
+                if self._shutdown:
+                    break
+
+                self._perform_maintenance()
+
+            except Exception as e:
+                self._logger.error(f"Maintenance loop error: {e}")
+                time.sleep(5)  # Avoid tight error loop
+
+    def _perform_maintenance(self) -> None:
+        """Perform pool maintenance tasks."""
+        # Clean up idle connections beyond minimum
+        available_count = self._available.qsize()
+        in_use_count = len(self._in_use)
+
+        if available_count > self.config.min_connections:
+            # Remove excess idle connections
+            excess = available_count - self.config.min_connections
+            for _ in range(excess):
+                try:
+                    pooled_conn = self._available.get_nowait()
+                    if pooled_conn.idle_time > self.config.max_idle_time:
+                        self._destroy_connection(pooled_conn)
+                    else:
+                        # Put back if not too old
+                        self._available.put_nowait(pooled_conn)
+                except Empty:
+                    break
+
+        # Health check in-use connections
+        with self._lock:
+            for pooled_conn in list(self._in_use):
+                if pooled_conn.needs_health_check(self.config.health_check_interval):
+                    if not self._check_connection_health(pooled_conn):
+                        self._logger.warning("In-use connection found unhealthy")
+
+    def shutdown(self) -> None:
+        """Shutdown the connection pool."""
+        self._shutdown = True
+
+        # Wait for maintenance thread
+        if self._maintenance_thread.is_alive():
+            self._maintenance_thread.join(timeout=5.0)
+
+        # Close all connections
+        with self._lock:
+            for pooled_conn in self._in_use:
+                self._destroy_connection(pooled_conn)
+            self._in_use.clear()
+
+        # Close available connections
+        while not self._available.empty():
+            try:
+                pooled_conn = self._available.get_nowait()
+                self._destroy_connection(pooled_conn)
+            except Empty:
+                break
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get pool statistics."""
+        return {
+            "available": self._available.qsize(),
+            "in_use": len(self._in_use),
+            "created": self._created_count,
+            "destroyed": self._destroyed_count,

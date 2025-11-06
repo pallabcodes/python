@@ -1,0 +1,59 @@
+    input_messages = [create_data_message(input_data)]
+
+    print("Error handling with malformed HTML and missing elements:")
+    print("Some rules are required, some have invalid selectors")
+    print()
+
+    try:
+        results = pipeline.run_pipeline(input_messages, timeout=10.0)
+
+        print(f"Pipeline completed in {results['execution_time']:.2f}s")
+        print(f"Success: {results['success']}")
+
+        if results['success']:
+            extracted = results[0][parser.output_field]
+            print("
+Extraction results:")
+            for key, value in extracted.items():
+                if not key.startswith('_'):
+                    print(f"  {key}: {value}")
+
+            errors = extracted.get('_extraction_errors', [])
+            if errors:
+                print(f"\nExtraction errors ({len(errors)}):")
+                for error in errors:
+                    print(f"  - {error}")
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+
+
+def run_all_parser_demos() -> None:
+    """Run all HTML parser demonstrations."""
+    # Configure logging for demos
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    print("Running HTML Parser Demonstrations")
+    print("=" * 45)
+
+    try:
+        demo_basic_html_parsing()
+        demo_configurable_parsing()
+        demo_regex_extraction()
+        demo_error_handling()
+
+        print("\n" + "=" * 45)
+        print("All HTML parser demonstrations completed successfully!")
+
+    except Exception as e:
+        print(f"\nDemo failed with error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    """Run demonstrations when executed directly."""
+    run_all_parser_demos()
+

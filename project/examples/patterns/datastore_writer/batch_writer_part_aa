@@ -1,0 +1,160 @@
+"""
+Batch operations for efficient data writing.
+
+This module provides batch writing capabilities with configurable
+batch sizes, error handling, and performance optimization for
+bulk data operations.
+"""
+
+import time
+import logging
+from typing import Any, List, Dict, Optional, Callable, Iterator
+from dataclasses import dataclass
+from enum import Enum
+
+
+class BatchStrategy(Enum):
+    """Batch processing strategies."""
+    FIXED_SIZE = "fixed_size"
+    TIME_WINDOW = "time_window"
+    ADAPTIVE = "adaptive"
+
+
+@dataclass
+class BatchConfig:
+    """Configuration for batch operations."""
+    strategy: BatchStrategy = BatchStrategy.FIXED_SIZE
+    max_batch_size: int = 100
+    max_wait_time: float = 5.0  # seconds
+    min_batch_size: int = 1
+    flush_on_full: bool = True
+    retry_failed_batches: bool = True
+    max_retries: int = 3
+
+    def __post_init__(self):
+        """Validate configuration."""
+        if self.max_batch_size < 1:
+            raise ValueError("max_batch_size must be at least 1")
+        if self.min_batch_size < 1:
+            raise ValueError("min_batch_size must be at least 1")
+        if self.min_batch_size > self.max_batch_size:
+            raise ValueError("min_batch_size cannot exceed max_batch_size")
+        if self.max_wait_time <= 0:
+            raise ValueError("max_wait_time must be positive")
+
+
+@dataclass
+class BatchResult:
+    """Result of a batch operation."""
+    batch_id: str
+    items_processed: int
+    success: bool
+    error: Optional[str] = None
+    retry_count: int = 0
+    processing_time: float = 0.0
+
+    @property
+    def is_successful(self) -> bool:
+        """Check if batch operation was successful."""
+        return self.success and self.items_processed > 0
+
+
+class BatchWriter:
+    """Efficient batch writer with configurable strategies."""
+
+    def __init__(
+        self,
+        batch_processor: Callable[[List[Any]], BatchResult],
+        config: Optional[BatchConfig] = None
+    ):
+        """Initialize batch writer.
+
+        Args:
+            batch_processor: Function to process batches of items
+            config: Batch configuration
+        """
+        self.config = config or BatchConfig()
+        self._batch_processor = batch_processor
+        self._current_batch: List[Any] = []
+        self._batch_id_counter = 0
+        self._last_flush_time = time.time()
+        self._logger = logging.getLogger(__name__)
+
+        # Statistics
+        self._total_items = 0
+        self._total_batches = 0
+        self._successful_batches = 0
+        self._failed_batches = 0
+        self._total_processing_time = 0.0
+
+    def add_item(self, item: Any) -> None:
+        """Add an item to the current batch.
+
+        Args:
+            item: Item to add to batch
+        """
+        self._current_batch.append(item)
+        self._total_items += 1
+
+        # Check if batch should be flushed
+        if self._should_flush():
+            self.flush()
+
+    def add_items(self, items: List[Any]) -> None:
+        """Add multiple items to the batch.
+
+        Args:
+            items: Items to add
+        """
+        for item in items:
+            self.add_item(item)
+
+    def flush(self) -> Optional[BatchResult]:
+        """Flush the current batch if it has items.
+
+        Returns:
+            Batch result if batch was processed, None otherwise
+        """
+        if not self._current_batch:
+            return None
+
+        batch_items = self._current_batch.copy()
+        self._current_batch.clear()
+
+        result = self._process_batch(batch_items)
+        self._last_flush_time = time.time()
+
+        return result
+
+    def flush_if_needed(self) -> Optional[BatchResult]:
+        """Flush batch if conditions are met.
+
+        Returns:
+            Batch result if flushed, None otherwise
+        """
+        if self._should_flush():
+            return self.flush()
+        return None
+
+    def force_flush(self) -> Optional[BatchResult]:
+        """Force flush current batch regardless of conditions.
+
+        Returns:
+            Batch result if batch was processed, None otherwise
+        """
+        return self.flush()
+
+    def _should_flush(self) -> bool:
+        """Determine if batch should be flushed."""
+        if not self._current_batch:
+            return False
+
+        batch_size = len(self._current_batch)
+
+        # Always flush if batch is full
+        if batch_size >= self.config.max_batch_size:
+            return True
+
+        # Time-based flushing
+        if self.config.strategy in [BatchStrategy.TIME_WINDOW, BatchStrategy.ADAPTIVE]:
+            elapsed = time.time() - self._last_flush_time

@@ -1,0 +1,88 @@
+            create_table_sql=create_table,
+            pool_config=pool_config
+        )
+
+        pipeline = PipelineRunner([writer])
+
+        # Generate many items to test connection pooling
+        test_data = [
+            {"id": i, "data": f"Test item {i}"}
+            for i in range(20)
+        ]
+
+        input_messages = [create_data_message(data) for data in test_data]
+
+        print("Testing connection pooling...")
+        print(f"Items to write: {len(test_data)}")
+        print("Pool config: max=3, min=1 connections"
+        print("Health checks: every 10 seconds"
+
+        # Run pipeline
+        results = pipeline.run_pipeline(input_messages, timeout=30.0)
+
+        print(f"Pipeline completed in {results['execution_time']:.2f}s")
+        print(f"Success: {results['success']}")
+
+        # Show pool statistics
+        pool_stats = writer.get_stats()['pool_stats']
+        if pool_stats:
+            print("
+Connection Pool Statistics:")
+            print(f"  Connections created: {pool_stats['created']}")
+            print(f"  Connections available: {pool_stats['available']}")
+            print(f"  Connections in use: {pool_stats['in_use']}")
+            print(f"  Connections acquired: {pool_stats['acquired']}")
+            print(f"  Connections released: {pool_stats['released']}")
+
+        # Verify all data was written
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM pool_test")
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        print(f"\nData verification: {count} records written")
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        try:
+            os.close(db_fd)
+            os.unlink(db_path)
+        except:
+            pass
+
+
+def run_all_datastore_demos() -> None:
+    """Run all datastore writer demonstrations."""
+    # Configure logging for demos
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    print("Running Datastore Writer Demonstrations")
+    print("=" * 50)
+
+    try:
+        demo_basic_datastore_writing()
+        demo_batch_writing()
+        demo_transaction_management()
+        demo_connection_pooling()
+
+        print("\n" + "=" * 50)
+        print("All datastore writer demonstrations completed successfully!")
+
+    except Exception as e:
+        print(f"\nDemo failed with error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    """Run demonstrations when executed directly."""
+    run_all_datastore_demos()
+

@@ -1,0 +1,58 @@
+        # This is a simplified example - real implementation would
+        # depend on the data structure and table schema
+        if isinstance(data, dict):
+            columns = ', '.join(data.keys())
+            placeholders = ', '.join(['?' for _ in data])
+            values = list(data.values())
+
+            sql = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
+            connection.execute(sql, values)
+            connection.commit()
+
+    def execute_batch_write(self, connection: Any, data: List[Any]) -> int:
+        """Execute batch write."""
+        if not data:
+            return 0
+
+        # Simplified batch insert
+        if isinstance(data[0], dict):
+            columns = list(data[0].keys())
+            columns_str = ', '.join(columns)
+
+            # Build values for all rows
+            all_values = []
+            for item in data:
+                all_values.extend([item.get(col) for col in columns])
+
+            placeholders = ', '.join(['?' for _ in columns])
+            row_placeholders = ', '.join([f"({placeholders})" for _ in data])
+
+            sql = f"INSERT INTO {self.table_name} ({columns_str}) VALUES {row_placeholders}"
+            connection.execute(sql, all_values)
+            connection.commit()
+
+        return len(data)
+
+
+def create_sqlite_writer(
+    name: str,
+    db_path: str,
+    table_name: str,
+    create_table_sql: Optional[str] = None,
+    **kwargs
+) -> DatastoreWriterStage:
+    """Create a SQLite datastore writer.
+
+    Args:
+        name: Stage name
+        db_path: SQLite database file path
+        table_name: Table name to write to
+        create_table_sql: SQL to create table
+        **kwargs: Additional DatastoreWriterStage arguments
+
+    Returns:
+        Configured DatastoreWriterStage
+    """
+    backend = SQLiteBackend(db_path, table_name, create_table_sql)
+    return DatastoreWriterStage(name=name, backend=backend, **kwargs)
+

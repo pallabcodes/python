@@ -1,0 +1,160 @@
+                "method": "css_selector",
+                "selector": ".price"
+            },
+            {
+                "name": "category",
+                "method": "css_selector",
+                "selector": ".category"
+            },
+            {
+                "name": "availability",
+                "method": "css_selector",
+                "selector": ".stock"
+            }
+        ],
+        "product_id": "widget-001"
+    }
+
+    input_messages = [create_data_message(input_data)]
+
+    print("Configurable parsing with runtime rules:")
+    print("HTML content + extraction rules provided at runtime")
+    print()
+
+    try:
+        results = pipeline.run_pipeline(input_messages, timeout=10.0)
+
+        print(f"Pipeline completed in {results['execution_time']:.2f}s")
+        print(f"Success: {results['success']}")
+
+        if results['success']:
+            extracted = results[0][parser.output_field]
+            print("
+Extracted product data:")
+            for key, value in extracted.items():
+                if not key.startswith('_'):
+                    print(f"  {key}: {value}")
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+
+
+def demo_regex_extraction() -> None:
+    """Demonstrate regex-based data extraction."""
+    print("\n=== Regex Extraction Demo ===")
+
+    # HTML with structured text patterns
+    html_content = """
+    <html>
+    <body>
+        <p>Contact: email@company.com</p>
+        <p>Phone: (555) 123-4567</p>
+        <p>Website: https://www.company.com</p>
+        <p>Address: 123 Main St, City, ST 12345</p>
+    </body>
+    </html>
+    """
+
+    # Regex-based extraction rules
+    rules = [
+        ExtractionRule(
+            name="email",
+            method=ExtractionMethod.REGEX,
+            selector=r'[\w\.-]+@[\w\.-]+\.\w+'
+        ),
+        ExtractionRule(
+            name="phone",
+            method=ExtractionMethod.REGEX,
+            selector=r'\(\d{3}\) \d{3}-\d{4}'
+        ),
+        ExtractionRule(
+            name="website",
+            method=ExtractionMethod.REGEX,
+            selector=r'https?://[^\s<>"\'{}|\\^`[\]]+'
+        ),
+        ExtractionRule(
+            name="zip_code",
+            method=ExtractionMethod.REGEX,
+            selector=r'\b\d{5}\b'
+        )
+    ]
+
+    parser = HTMLParserStage(
+        name="RegexParser",
+        extraction_rules=rules,
+        input_field="content"
+    )
+
+    pipeline = PipelineRunner([parser])
+
+    input_data = {"content": html_content, "source": "contact_page"}
+    input_messages = [create_data_message(input_data)]
+
+    print("Regex-based extraction from HTML text:")
+    print("Extracting email, phone, website, zip code using regex patterns")
+    print()
+
+    try:
+        results = pipeline.run_pipeline(input_messages, timeout=10.0)
+
+        print(f"Pipeline completed in {results['execution_time']:.2f}s")
+        print(f"Success: {results['success']}")
+
+        if results['success']:
+            extracted = results[0][parser.output_field]
+            print("
+Extracted contact information:")
+            for key, value in extracted.items():
+                if not key.startswith('_'):
+                    print(f"  {key}: {value}")
+
+    except Exception as e:
+        print(f"Demo failed: {e}")
+
+
+def demo_error_handling() -> None:
+    """Demonstrate error handling in HTML parsing."""
+    print("\n=== Error Handling Demo ===")
+
+    # Rules with some invalid selectors
+    rules = [
+        ExtractionRule(
+            name="title",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="title",
+            required=True
+        ),
+        ExtractionRule(
+            name="missing_element",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector=".nonexistent",
+            required=True,
+            default_value="Not found"
+        ),
+        ExtractionRule(
+            name="invalid_selector",
+            method=ExtractionMethod.CSS_SELECTOR,
+            selector="invalid[selector",
+            default_value="Parse error"
+        )
+    ]
+
+    parser = HTMLParserStage(
+        name="ErrorHandlingParser",
+        extraction_rules=rules
+    )
+
+    pipeline = PipelineRunner([parser])
+
+    # Malformed HTML
+    malformed_html = """
+    <html>
+    <head><title>Test Page</title>
+    <body>
+    <h1>Unclosed heading
+    <p>Some content
+    <div class="broken">Broken <span>nested
+    </body>
+    """
+
+    input_data = {"data": malformed_html}

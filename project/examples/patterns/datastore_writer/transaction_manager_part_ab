@@ -1,0 +1,160 @@
+        if transaction_id not in self._active_transactions:
+            raise TransactionError(f"Unknown transaction: {transaction_id}")
+
+        context = self._active_transactions[transaction_id]
+
+        try:
+            self._execute_commit(conn)
+            context.state = TransactionState.COMMITTED
+
+            self._logger.debug(
+                f"Committed transaction {transaction_id}",
+                extra={"transaction_id": transaction_id}
+            )
+
+        except Exception as e:
+            context.state = TransactionState.FAILED
+            raise TransactionError(f"Failed to commit transaction: {e}") from e
+
+        finally:
+            del self._active_transactions[transaction_id]
+
+    def _rollback_transaction(self, conn: Any, transaction_id: str) -> None:
+        """Rollback a transaction.
+
+        Args:
+            conn: Database connection
+            transaction_id: Transaction to rollback
+        """
+        if transaction_id not in self._active_transactions:
+            self._logger.warning(f"Attempting to rollback unknown transaction: {transaction_id}")
+            return
+
+        context = self._active_transactions[transaction_id]
+
+        try:
+            self._execute_rollback(conn)
+            context.state = TransactionState.ROLLED_BACK
+
+            self._logger.debug(
+                f"Rolled back transaction {transaction_id}",
+                extra={"transaction_id": transaction_id}
+            )
+
+        except Exception as e:
+            context.state = TransactionState.FAILED
+            self._logger.error(f"Failed to rollback transaction {transaction_id}: {e}")
+
+        finally:
+            del self._active_transactions[transaction_id]
+
+    def create_savepoint(self, conn: Any, transaction_id: str, name: str) -> None:
+        """Create a transaction savepoint.
+
+        Args:
+            conn: Database connection
+            transaction_id: Transaction ID
+            name: Savepoint name
+        """
+        if transaction_id not in self._active_transactions:
+            raise TransactionError(f"Unknown transaction: {transaction_id}")
+
+        context = self._active_transactions[transaction_id]
+
+        try:
+            self._execute_savepoint(conn, name)
+            context.savepoints.append(name)
+
+            self._logger.debug(
+                f"Created savepoint '{name}' in transaction {transaction_id}",
+                extra={"transaction_id": transaction_id, "savepoint": name}
+            )
+
+        except Exception as e:
+            raise TransactionError(f"Failed to create savepoint '{name}': {e}") from e
+
+    def rollback_to_savepoint(self, conn: Any, transaction_id: str, name: str) -> None:
+        """Rollback to a savepoint.
+
+        Args:
+            conn: Database connection
+            transaction_id: Transaction ID
+            name: Savepoint name
+        """
+        if transaction_id not in self._active_transactions:
+            raise TransactionError(f"Unknown transaction: {transaction_id}")
+
+        context = self._active_transactions[transaction_id]
+
+        if name not in context.savepoints:
+            raise TransactionError(f"Unknown savepoint: {name}")
+
+        try:
+            self._execute_rollback_to_savepoint(conn, name)
+
+            # Remove savepoints created after this one
+            index = context.savepoints.index(name)
+            context.savepoints = context.savepoints[:index + 1]
+
+            self._logger.debug(
+                f"Rolled back to savepoint '{name}' in transaction {transaction_id}",
+                extra={"transaction_id": transaction_id, "savepoint": name}
+            )
+
+        except Exception as e:
+            raise TransactionError(f"Failed to rollback to savepoint '{name}': {e}") from e
+
+    def get_transaction_stats(self) -> Dict[str, Any]:
+        """Get transaction statistics."""
+        return {
+            "active_transactions": len(self._active_transactions),
+            "transaction_details": [
+                {
+                    "id": ctx.transaction_id,
+                    "state": ctx.state.value,
+                    "start_time": ctx.start_time,
+                    "nested_level": ctx.nested_level,
+                    "savepoints": len(ctx.savepoints)
+                }
+                for ctx in self._active_transactions.values()
+            ]
+        }
+
+    # Database-specific implementations (override in subclasses)
+
+    def _set_isolation_level(self, conn: Any, level: IsolationLevel) -> None:
+        """Set transaction isolation level."""
+        # Default implementation - override for specific databases
+        pass
+
+    def _set_readonly(self, conn: Any, readonly: bool) -> None:
+        """Set transaction read-only mode."""
+        # Default implementation - override for specific databases
+        pass
+
+    def _execute_begin(self, conn: Any) -> None:
+        """Execute BEGIN TRANSACTION."""
+        conn.execute("BEGIN")
+
+    def _execute_commit(self, conn: Any) -> None:
+        """Execute COMMIT."""
+        conn.commit()
+
+    def _execute_rollback(self, conn: Any) -> None:
+        """Execute ROLLBACK."""
+        conn.rollback()
+
+    def _execute_savepoint(self, conn: Any, name: str) -> None:
+        """Execute SAVEPOINT."""
+        conn.execute(f"SAVEPOINT {name}")
+
+    def _execute_rollback_to_savepoint(self, conn: Any, name: str) -> None:
+        """Execute ROLLBACK TO SAVEPOINT."""
+        conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
+
+
+class NestedTransactionManager(TransactionManager):
+    """Transaction manager supporting nested transactions."""
+
+    def __init__(self, connection_pool: Any):
+        """Initialize nested transaction manager."""
