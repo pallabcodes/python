@@ -1,0 +1,73 @@
+# Base Docker Compose configuration for MLOps + Gen AI Platform
+
+version: '3.8'
+
+services:
+  # Main application
+  mlops-genai-platform:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8000:8000"
+    environment:
+      - MLOPS_PROJECT_NAME=mlops-genai-platform
+      - MLOPS_ENVIRONMENT=production
+      - MLOPS_DATABASE__CONNECTION_STRING=sqlite:///data/platform.db
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mlops-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mlops-network
+
+  # PostgreSQL for production database (optional)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlops_platform
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlops_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlops -d mlops_platform"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mlops-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  mlops-network:
+    driver: bridge

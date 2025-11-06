@@ -1,0 +1,14 @@
+artifact_uri: /Users/picon/Learning/python/project/real_world/mlops_genai_platform/models/sentiment_analysis_experiment/d0323ccc088140868a0e04f0fad0f085/artifacts
+end_time: 1762425035924
+entry_point_name: ''
+experiment_id: '406053751312769410'
+lifecycle_stage: active
+run_id: d0323ccc088140868a0e04f0fad0f085
+run_name: bert_base_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762425035909
+status: 3
+tags: []
+user_id: picon

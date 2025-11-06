@@ -1,0 +1,122 @@
+# Kubernetes deployment for MLOps + Gen AI Platform
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlops-genai-platform
+  labels:
+    app: mlops-genai-platform
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mlops-genai-platform
+  template:
+    metadata:
+      labels:
+        app: mlops-genai-platform
+    spec:
+      containers:
+      - name: mlops-genai-platform
+        image: mlops-genai-platform:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MLOPS_PROJECT_NAME
+          value: "mlops-genai-platform"
+        - name: MLOPS_ENVIRONMENT
+          value: "production"
+        - name: MLOPS_DATABASE__CONNECTION_STRING
+          value: "postgresql://mlops_prod:prod_password@postgres-service:5432/mlops_platform_prod"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: models-volume
+          mountPath: /app/models
+        - name: logs-volume
+          mountPath: /app/logs
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: mlops-data-pvc
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: mlops-models-pvc
+      - name: logs-volume
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlops-genai-platform-service
+spec:
+  selector:
+    app: mlops-genai-platform
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlops-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlops-models-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlops-genai-platform-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: mlops-platform.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mlops-genai-platform-service
+            port:
+              number: 8000

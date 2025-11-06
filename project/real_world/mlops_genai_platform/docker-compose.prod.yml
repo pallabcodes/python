@@ -1,0 +1,137 @@
+# Production Docker Compose configuration
+
+version: '3.8'
+
+services:
+  # Main application (production)
+  mlops-genai-platform-prod:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8000:8000"
+    environment:
+      - MLOPS_PROJECT_NAME=mlops-genai-platform-prod
+      - MLOPS_ENVIRONMENT=production
+      - MLOPS_DATABASE__CONNECTION_STRING=postgresql://mlops_prod:prod_password@postgres-prod:5432/mlops_platform_prod
+      - MLOPS_LOGGING__LEVEL=INFO
+      - MLOPS_MONITORING__ENABLE_TRACING=true
+    volumes:
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+      redis-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - mlops-prod-network
+
+  # Redis for production
+  redis-prod:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-prod_redis_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_prod_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mlops-prod-network
+
+  # PostgreSQL for production
+  postgres-prod:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlops_platform_prod
+      POSTGRES_USER: mlops_prod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prod_db_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlops_prod -d mlops_platform_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mlops-prod-network
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - mlops-genai-platform-prod
+    restart: unless-stopped
+    networks:
+      - mlops-prod-network
+
+  # Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - mlops-prod-network
+
+  # Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - mlops-prod-network
+
+volumes:
+  redis_prod_data:
+  postgres_prod_data:
+  nginx_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  mlops-prod-network:
+    driver: bridge

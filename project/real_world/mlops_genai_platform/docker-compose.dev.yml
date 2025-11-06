@@ -1,0 +1,70 @@
+# Development Docker Compose configuration
+
+version: '3.8'
+
+services:
+  # Development application with hot reload
+  mlops-genai-platform-dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - MLOPS_PROJECT_NAME=mlops-genai-platform-dev
+      - MLOPS_ENVIRONMENT=development
+      - MLOPS_DATABASE__CONNECTION_STRING=sqlite:///data/dev_platform.db
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - mlops-dev-network
+
+  # Redis for development
+  redis-dev:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - mlops-dev-network
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mlops.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres-dev
+    networks:
+      - mlops-dev-network
+
+  # PostgreSQL for development
+  postgres-dev:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlops_platform_dev
+      POSTGRES_USER: mlops_dev
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - mlops-dev-network
+
+volumes:
+  redis_dev_data:
+  postgres_dev_data:
+
+networks:
+  mlops-dev-network:
+    driver: bridge
