@@ -16,6 +16,24 @@ import time
 from typing import Any, List, Optional
 
 
+def multiply_task(x: int, multiplier: int) -> int:
+    """
+    Module-level function for starmap example.
+    Multiplies the result of cpu_bound_task by a multiplier.
+    """
+    return ProcessPoolExample.cpu_bound_task(x) * multiplier
+
+
+def task_that_may_fail(x: int) -> int:
+    """
+    Module-level function for error handling example.
+    May raise an exception for certain inputs.
+    """
+    if x == 50000:
+        raise ValueError(f"Task failed for input {x}")
+    return ProcessPoolExample.cpu_bound_task(x)
+
+
 class ProcessPoolExample:
     """
     Examples using process pools for parallel computation.
@@ -189,9 +207,6 @@ class ProcessPoolExample:
             # Create tasks with multiple arguments
             tasks = [(num, 2) for num in numbers[:2]]  # (number, multiplier)
 
-            def multiply_task(x: int, multiplier: int) -> int:
-                return self.cpu_bound_task(x) * multiplier
-
             starmap_results = pool.starmap(multiply_task, tasks)
             print(f"starmap results: {starmap_results}")
 
@@ -228,12 +243,6 @@ class ProcessPoolExample:
     def error_handling_in_pools(self) -> None:
         """Demonstrate error handling in process pools."""
         print("=== Error Handling in Process Pools ===")
-
-        def task_that_may_fail(x: int) -> int:
-            """Task that may raise an exception."""
-            if x == 50000:
-                raise ValueError(f"Task failed for input {x}")
-            return self.cpu_bound_task(x)
 
         numbers = [25000, 50000, 75000]
 

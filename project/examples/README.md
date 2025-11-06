@@ -6,10 +6,11 @@ Working examples demonstrating Python concurrency and parallelism concepts.
 
 Examples are organized by topic:
 
-- **threading/** - Thread-based concurrency examples
+- **threading_examples/** - Thread-based concurrency examples
 - **multiprocessing/** - Process-based parallelism examples
-- **asyncio/** - Async/await programming examples
+- **asyncio_examples/** - Async/await programming examples
 - **concurrent_futures/** - Executor-based concurrency examples
+- **subprocess_examples/** - External process execution examples
 - **patterns/** - Common concurrency patterns
 
 ## Usage
@@ -17,7 +18,7 @@ Examples are organized by topic:
 Each example is self-contained and can be run directly:
 
 ```bash
-cd examples/threading
+cd examples/threading_examples
 python basic_threading.py
 ```
 
@@ -49,6 +50,14 @@ python basic_threading.py
 - ProcessPoolExecutor usage
 - Future management
 - Parallel map operations
+
+### Subprocess Examples
+- Basic command execution
+- Advanced process control
+- Inter-process communication
+- Error handling and recovery
+- Security best practices
+- Real-world system administration
 
 ### Pattern Examples
 - Producer-consumer

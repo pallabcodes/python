@@ -360,7 +360,7 @@ class TypedThreadPoolExecutor:
                 pass  # Ignore errors during shutdown
 
         # Shutdown the underlying executor
-        self._executor.shutdown(wait=wait, timeout=timeout)
+        self._executor.shutdown(wait=wait)
 
         self._logger.info(
             f"TypedThreadPoolExecutor '{self._name}' shutdown complete",

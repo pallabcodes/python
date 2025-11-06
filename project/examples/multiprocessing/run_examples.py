@@ -61,7 +61,7 @@ def run_shared_memory_examples() -> None:
     example.shared_array_example()
     example.synchronization_primitives()
     example.event_example()
-    example.condition_variables()
+    example.condition_example()
     example.manager_example()
     example.atomic_operations()
 
@@ -87,7 +87,7 @@ def run_synchronization_examples() -> None:
     example.lock_vs_rlock()
     example.semaphore_patterns()
     example.event_coordination()
-    example.condition_variables()
+    example.condition_example()
     example.barrier_synchronization()
     example.reader_writer_problem()
     example.deadlock_prevention()
