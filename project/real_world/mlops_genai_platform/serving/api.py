@@ -14,16 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-try:
-    from ..core.platform import MLOpsPlatform
-except ImportError:
-    # Fallback for direct imports
-    import sys
-    from pathlib import Path
-    project_root = Path(__file__).parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-    from core.platform import MLOpsPlatform
+from ..core.platform import MLOpsPlatform
 
 
 # Request/Response Models
