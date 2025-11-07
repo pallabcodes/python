@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+---
+
 # Error Handling Standards
 
 ## MANDATORY: Proper error handling for all code

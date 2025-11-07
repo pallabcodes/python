@@ -7,10 +7,11 @@ Working examples demonstrating Python concurrency and parallelism concepts.
 Examples are organized by topic:
 
 - **threading_examples/** - Thread-based concurrency examples
-- **multiprocessing/** - Process-based parallelism examples
+- **multiprocessing_examples/** - Process-based parallelism examples
 - **asyncio_examples/** - Async/await programming examples
 - **concurrent_futures/** - Executor-based concurrency examples
 - **subprocess_examples/** - External process execution examples
+- **hybrid_concurrency/** - Advanced hybrid concurrency patterns
 - **patterns/** - Common concurrency patterns
 
 ## Usage
@@ -36,7 +37,7 @@ python basic_threading.py
 - Inter-process communication
 - Shared memory
 - Process pools
-- Distributed processing
+- Parallel processing
 
 ### Asyncio Examples
 - Basic coroutines
@@ -58,6 +59,25 @@ python basic_threading.py
 - Error handling and recovery
 - Security best practices
 - Real-world system administration
+
+### Hybrid Concurrency Examples
+- AsyncIO + Threading patterns
+- AsyncIO + Multiprocessing patterns
+- Threading + Multiprocessing patterns
+- Custom intelligent executors
+- Situation-specific processors
+- Real-world hybrid applications
+
+### Advanced Hybrid Concurrency Examples
+- **Advanced Synchronization**: Distributed locks, transactional memory, lock-free structures
+- **Distributed Concurrency**: Celery, Dask, Ray integration, Kubernetes-aware concurrency
+- **Actor Model**: Message-passing concurrency with supervisors and fault tolerance
+- **Reactive Programming**: RxPY streams, backpressure handling, async reactive patterns
+- **Custom Primitives**: Priority queues, adaptive rate limiters, smart circuit breakers
+- **Performance Profiling**: Real-time monitoring, bottleneck detection, tracing
+- **Configuration-Driven**: Runtime switching, adaptive executors, YAML/JSON config
+- **Container-Aware**: Docker communication, Kubernetes integration, service discovery
+- **ML-Specific**: GPU/TPU concurrency, model inference pipelines, distributed training
 
 ### Pattern Examples
 - Producer-consumer

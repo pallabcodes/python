@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+---
+
 # Type Hints Requirements
 
 ## MANDATORY: All functions MUST have type hints
