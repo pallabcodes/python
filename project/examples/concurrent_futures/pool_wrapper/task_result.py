@@ -10,6 +10,38 @@ from typing import Any, Optional, Union
 from dataclasses import dataclass
 from concurrent.futures import Future
 
+"""
+
+WHAT IT DEFINES:
+- TaskResult: Individual task execution result with metadata
+- TaskBatchResult: Aggregated results from multiple tasks
+- Factory methods for creating results
+- Serialization methods for logging/monitoring
+
+KEY FEATURES:
+- @dataclass: Automatic constructor, repr, equality methods
+- Rich metadata: task_id, success/failure, timing, error details
+- Factory pattern: TaskResult.from_success() vs from_error()
+- Serialization: to_dict() for JSON logging
+- Aggregation: Batch results with statistics and error details
+
+WHY RICH DATA STRUCTURES:
+Standard ThreadPoolExecutor only returns raw results or raises exceptions
+This project provides observability into:
+- Which tasks succeeded/failed
+- How long tasks took
+- What errors occurred and where
+- Correlation IDs for tracing
+- Batch-level success rates and timing
+
+PRODUCTION BENEFITS:
+- Monitoring: Track task success rates, latency, error patterns
+- Debugging: Rich context for troubleshooting failures
+- Alerting: Detect performance degradation or error spikes
+- Analytics: Understand system behavior and bottlenecks
+
+"""
+
 
 @dataclass
 class TaskResult:

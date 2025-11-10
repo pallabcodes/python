@@ -10,7 +10,6 @@ from typing import Any, Optional
 
 from .executor_core import TypedThreadPoolExecutor
 
-
 def shutdown(self, wait: bool = True, timeout: Optional[float] = None) -> None:
     """Shutdown the executor.
 
@@ -42,7 +41,7 @@ def shutdown(self, wait: bool = True, timeout: Optional[float] = None) -> None:
             pass  # Ignore errors during shutdown
 
     # Shutdown the underlying executor
-    self._executor.shutdown(wait=wait, timeout=timeout)
+    self._executor.shutdown(wait=wait)
 
     self._logger.info(
         f"TypedThreadPoolExecutor '{self._name}' shutdown complete",
@@ -76,7 +75,7 @@ TypedThreadPoolExecutor.get_stats = get_stats
 from . import executor_tasks
 from . import executor_results
 
-# Ensure all methods are properly attached
+# Ensure all methods are properly attached to this TypedThreadPoolExecutor class
 assert hasattr(TypedThreadPoolExecutor, 'submit_task')
 assert hasattr(TypedThreadPoolExecutor, 'get_task_result')
 assert hasattr(TypedThreadPoolExecutor, 'cancel_task')
@@ -85,3 +84,26 @@ assert hasattr(TypedThreadPoolExecutor, 'get_batch_results')
 assert hasattr(TypedThreadPoolExecutor, 'shutdown')
 assert hasattr(TypedThreadPoolExecutor, 'get_stats')
 
+"""
+WHAT IS assert?
+- assert condition: Raises AssertionError if condition is False
+- Used for debugging and runtime checks
+- Can be disabled with python -O (optimize) flag
+
+WHAT IS hasattr(object, attribute_name)?
+- Returns True if object has the named attribute
+- hasattr(obj, 'method') checks if obj.method exists
+- Equivalent to: hasattr(obj, 'method') == getattr(obj, 'method', None) is not None
+
+WHY THESE ASSERTIONS ARE CRITICAL:
+1. Verify method injection worked correctly
+2. Catch import order problems or missing implementations
+3. Fail fast with clear error if something is broken
+4. Prevent silent failures where class appears to work but doesn't
+
+EXAMPLE FAILURE SCENARIO:
+If executor_tasks.py had a syntax error, these would fail:
+AssertionError: (missing method details)
+Much better than mysterious NotImplementedError later!
+
+"""

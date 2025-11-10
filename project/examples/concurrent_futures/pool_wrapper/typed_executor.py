@@ -334,10 +334,16 @@ class TypedThreadPoolExecutor:
 
         Args:
             wait: Whether to wait for running tasks to complete.
-            timeout: Maximum time to wait for shutdown.
+            timeout: Maximum time to wait for shutdown (not supported by ThreadPoolExecutor).
         """
         if self._shutdown:
             return
+
+        if timeout is not None:
+            self._logger.warning(
+                f"Timeout parameter ({timeout}s) ignored for ThreadPoolExecutor shutdown",
+                extra={"executor_name": self._name, "timeout": timeout}
+            )
 
         self._shutdown = True
         active_count = len(self._active_tasks)
@@ -360,7 +366,7 @@ class TypedThreadPoolExecutor:
                 pass  # Ignore errors during shutdown
 
         # Shutdown the underlying executor
-        self._executor.shutdown(wait=wait, timeout=timeout)
+        self._executor.shutdown(wait=wait)
 
         self._logger.info(
             f"TypedThreadPoolExecutor '{self._name}' shutdown complete",
@@ -388,5 +394,5 @@ class TypedThreadPoolExecutor:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit with cleanup."""
-        self.shutdown(wait=True, timeout=30.0)
+        self.shutdown(wait=True)
 

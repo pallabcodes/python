@@ -47,12 +47,13 @@ class TypedThreadPoolExecutor:
         if max_workers is not None and max_workers <= 0:
             raise ValueError("max_workers must be positive")
 
+        # creating the thread pool executor
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix=thread_name_prefix
         )
         self._name = name
-        self._logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger(__name__) # __name__ is the name of the module i.e. executor_core
 
         self._logger.info(
             f"TypedThreadPoolExecutor '{name}' initialized",
@@ -126,5 +127,31 @@ class TypedThreadPoolExecutor:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit with cleanup."""
-        self.shutdown(wait=True, timeout=30.0)
+        self.shutdown(wait=True) # this method when called will handle the cleanup of the executor implicitly
 
+
+
+"""
+=== THE "with" KEYWORD AND CONTEXT MANAGERS ===
+
+WHAT IS "with"?
+A Python statement that provides AUTOMATIC resource management.
+It ensures cleanup happens even if errors occur.
+
+SYNTAX:
+with expression as variable:
+    # code block
+    # cleanup happens automatically/implicitly
+
+HOW IT WORKS:
+1. expression.__enter__() is called
+2. The result is assigned to variable
+3. Code block executes
+4. expression.__exit__() is ALWAYS called (even on exceptions)
+
+EXAMPLE - File handling (built-in):
+with open("file.txt", "r") as f:
+    content = f.read()
+# File automatically closed here automatically, even if read() fails
+
+"""
