@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+---
+
 # Concurrency-Specific Guidelines
 
 ## Thread Safety and Synchronization

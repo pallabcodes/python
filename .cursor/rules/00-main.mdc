@@ -4,7 +4,7 @@
 This project follows strict coding standards for SDE-3 level backend engineers, AI engineers, low-level system engineers, and DevOps automation engineers. Code must be crystal clear, easy to understand, and maintainable.
 
 ## ⚠️⚠️⚠️ CRITICAL: Google Production Standards ⚠️⚠️⚠️
-**BEFORE WRITING ANY CODE, READ: `00-google-production-standards.md`**
+**BEFORE WRITING ANY CODE, READ: `00-google-production-standards.mdc`**
 
 ### Principal Engineer Review Standards
 - **Every line** will be scrutinized by Principal Engineers
@@ -13,7 +13,7 @@ This project follows strict coding standards for SDE-3 level backend engineers, 
 - **Code must be worthy** of production codebase acceptance
 
 ## ⚠️ CRITICAL: File Size Enforcement
-**BEFORE WRITING ANY CODE, READ: `01-file-size-enforcement.md`**
+**BEFORE WRITING ANY CODE, READ: `01-file-size-enforcement.mdc`**
 
 ### Absolute Maximums (NO EXCEPTIONS):
 - **File: 200 lines maximum**
@@ -26,20 +26,20 @@ If you're about to write code that would exceed these limits, **STOP** and refac
 This directory contains focused rule files:
 
 ### ⚠️ CRITICAL: Read These First
-- `00-google-production-standards.md` - **READ THIS FIRST** - Google SDE-3 production standards, Principal Engineer review criteria, debuggability requirements (5-20 min), production readiness
-- `01-file-size-enforcement.md` - **READ THIS SECOND** - File and function size limits
+- `00-google-production-standards.mdc` - **READ THIS FIRST** - Google SDE-3 production standards, Principal Engineer review criteria, debuggability requirements (5-20 min), production readiness
+- `01-file-size-enforcement.mdc` - **READ THIS SECOND** - File and function size limits
 
 ### Core Standards
-- `02-oop-principles.md` - Object-oriented programming requirements
-- `03-naming-conventions.md` - Naming standards
-- `04-type-hints.md` - Type hinting requirements
-- `05-documentation.md` - Documentation standards
-- `06-error-handling.md` - Error handling patterns
-- `07-concurrency-guidelines.md` - Concurrency-specific guidelines
+- `02-oop-principles.mdc` - Object-oriented programming requirements
+- `03-naming-conventions.mdc` - Naming standards
+- `04-type-hints.mdc` - Type hinting requirements
+- `05-documentation.mdc` - Documentation standards
+- `06-error-handling.mdc` - Error handling patterns
+- `07-concurrency-guidelines.mdc` - Concurrency-specific guidelines
 
 ### Additional Guidelines
-- `08-conventional-commits.md` - Commit message standards
-- `09-fastapi-guidelines.md` - FastAPI-specific guidelines (when using FastAPI)
+- `08-conventional-commits.mdc` - Commit message standards
+- `09-fastapi-guidelines.mdc` - FastAPI-specific guidelines (when using FastAPI)
 
 ## Core Principles
 
