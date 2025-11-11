@@ -10,10 +10,10 @@ This module covers:
 - Error handling in async generators
 """
 
-import asyncio
-import random
-import time
-from typing import AsyncGenerator, List, Tuple
+import asyncio # For asynchronous coroutine operations
+import random # For random numbers
+import time # For timestamps
+from typing import AsyncGenerator, List, Tuple # AsyncGenerator type hint for async generators
 
 
 class AsyncGeneratorExample:
@@ -21,6 +21,7 @@ class AsyncGeneratorExample:
     Examples of async generators for streaming and iteration.
     """
 
+    # async def with return type AsyncGenerator[int, None] - KEY: Indicates this is an async generator
     async def simple_async_generator(self, count: int) -> AsyncGenerator[int, None]:
         """
         Simple async generator that yields numbers with delays.
@@ -32,8 +33,8 @@ class AsyncGeneratorExample:
             Sequential numbers
         """
         for i in range(count):
-            await asyncio.sleep(0.1)  # Simulate async work
-            yield i
+            await asyncio.sleep(0.1)  # Simulate async work and always wait 0.1 seconds before yielding the next value
+            yield i # yield makes this a generator. Each yield pauses execution and returns a value
 
     async def fibonacci_async_generator(self, n: int) -> AsyncGenerator[int, None]:
         """
@@ -54,6 +55,8 @@ class AsyncGeneratorExample:
     async def basic_async_iteration(self) -> None:
         """Demonstrate basic async generator usage."""
         print("=== Basic Async Iteration ===")
+
+        # async for - KEY: Special syntax for iterating over async generators
 
         print("Iterating over simple async generator:")
         async for number in self.simple_async_generator(5):
@@ -110,8 +113,15 @@ class AsyncGeneratorExample:
             # Simulate network delay or I/O
             await asyncio.sleep(0.2)
 
+            # range(0, 3) = [0, 1, 2]
+            # range(3, 6) = [3, 4, 5]
+            # range(6, 9) = [6, 7, 8]
+            # range(9, 12) = [9, 10, 11]
             chunk = list(range(i, min(i + chunk_size, total_items)))
             print(f"Generated chunk: {chunk}")
+
+            # yields it — gives that chunk to the consumer, pausing here until the consumer  (i.e. whomever calls or uses this function) is ready for the next one
+            # suspends the generator until the consumer calls for the next chunk.
             yield chunk
 
     async def streaming_consumer(self) -> None:
@@ -119,6 +129,8 @@ class AsyncGeneratorExample:
         print("=== Streaming Data Consumption ===")
 
         total_received = []
+        
+        # when each iteration done within this async for then its producer resumes execution and yields new value and then again as this below async for works (meantime producr paused)
         async for chunk in self.data_streaming_generator():
             print(f"Processing chunk: {chunk}")
             total_received.extend(chunk)
@@ -126,11 +138,12 @@ class AsyncGeneratorExample:
             # Simulate processing time
             await asyncio.sleep(0.1)
 
-            # Could add early termination logic here
+            # Could add early termination logic here and break out of the loop
             if len(total_received) >= 8:
                 print("Received enough data, stopping...")
                 break
 
+        
         print(f"Total items received: {len(total_received)}")
         print(f"Items: {total_received}")
         print()
@@ -148,16 +161,38 @@ class AsyncGeneratorExample:
             await asyncio.sleep(0.15)
             yield message
 
+    """
+    -- This is a low-level manual version that async for does
+    -- aiter() - KEY: Converts async iterable to async iterator
+    -- anext() - KEY: Manually get next item from async iterator
+    -- StopAsyncIteration - KEY: Exception raised when iteration is complete
+    """
     async def aiter_example(self) -> None:
         """Demonstrate aiter() and anext() functions."""
         print("=== aiter() and anext() Usage ===")
 
-        # Create async iterator
+        # self.async_generator_with_aiter() returns an async generator object (that could be iterable) but it is not yet iterable.
+
+        # Create async iterator object (that could be iterable) from the async generator that looks like <async_generator object> and now That object can yield values one by one when you call await anext(async_iter).
         async_iter = aiter(self.async_generator_with_aiter())
 
         try:
             while True:
-                item = await anext(async_iter)
+
+                """
+                --So, await anext(async_iter):
+                -- Starts or resumes the async generator
+
+                -- Waits until it reaches the next yield
+
+                -- Returns that yielded value
+
+                -- If the generator finishes (no more yields), anext() raises a StopAsyncIteration exception.
+
+                -- That’s exactly what Python’s async for loop does automatically under the hood.
+                """
+
+                item = await anext(async_iter) # gets the next item from it, awaiting it as needed.
                 print(f"Manual iteration: {item}")
         except StopAsyncIteration:
             print("Iteration completed")
@@ -405,3 +440,27 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+"""
+🎯 Key Concepts Demonstrated:
+async def + yield - Creating async generators
+async for - Iterating over async generators
+AsyncGenerator[T, None] - Type hints for async generators
+aiter() / anext() - Manual async iteration
+aclose() - Manual cleanup of async generators
+Exception handling - In async generators with try/except/finally
+Streaming data - Processing data as it becomes available
+Concurrent generators - Multiple generators running simultaneously
+Nested iteration - Generators calling other generators
+Resource cleanup - Proper cleanup with finally blocks
+Real-world patterns - API streaming, data pipelines, timeouts
+
+🌊 Why Async Generators Matter:
+Memory efficiency - Process large datasets without loading everything into memory
+Streaming - Handle real-time data feeds, large files, API responses
+Lazy evaluation - Generate values only when needed
+Resource management - Proper cleanup of resources
+Composability - Chain generators together in pipelines
+Concurrency - Multiple generators can run simultaneously
+"""

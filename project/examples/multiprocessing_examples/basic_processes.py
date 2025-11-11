@@ -261,3 +261,27 @@ if __name__ == "__main__":
         multiprocessing.set_start_method('spawn', force=True)
 
     main()
+
+"""
+🎯 Key Multiprocessing Concepts Demonstrated:
+Process Creation - multiprocessing.Process() with target functions
+Process Lifecycle - start(), join(), exit codes
+Process Identification - PIDs, parent PIDs, process names
+Daemon Processes - Background processes that auto-terminate
+Process Termination - terminate() and kill() methods
+Parallel Computation - Speedup from running CPU tasks in parallel
+Inter-Process Communication - Using queues to share results
+Cross-Platform Compatibility - Different start methods for different OSes
+🔑 Why Multiprocessing Matters:
+True Parallelism - Bypasses GIL limitation for CPU-bound tasks
+Multiple Cores - Utilizes all available CPU cores
+Isolation - Each process has its own memory space
+Fault Tolerance - Process crashes don't affect others
+Scalability - Can run on multiple machines (distributed computing)
+⚠️ Important Notes:
+Resource Intensive - Each process has overhead (memory, startup time)
+IPC Complexity - Communication between processes is more complex than threads
+Pickle Requirements - Functions must be picklable to run in subprocesses
+Platform Differences - Different OSes have different process models
+This file provides the foundation for understanding multiprocessing in Python!
+"""

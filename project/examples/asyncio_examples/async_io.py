@@ -44,8 +44,10 @@ class AsyncIOExample:
         """
         print(f"📖 Reading file: {file_path}")
 
-        # Open file in async context
-        async with asyncio.Lock():  # File I/O isn't truly async in Python, but we can simulate
+        # This lock creates a temporary asynchronous lock context (like a mutex).
+        async with asyncio.Lock():
+            # → This is normal blocking file I/O.
+            # There’s no asynchronous open in the Python standard library; the OS reads the file immediately, blocking the interpreter while it does.
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
@@ -53,6 +55,9 @@ class AsyncIOExample:
         await asyncio.sleep(0.01)
         return content
 
+    
+    # this is a deceptively simple but subtle example, because it looks like it’s doing file I/O asynchronously, but under the hood it’s a mix of synchronous I/O inside an async function and simulated async behavior.
+    
     async def async_file_write(self, file_path: str, content: str) -> None:
         """
         Write content to a file asynchronously.
@@ -63,7 +68,7 @@ class AsyncIOExample:
         """
         print(f"✍️  Writing to file: {file_path}")
 
-        # Ensure directory exists
+        # Ensure parent directory exists
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
 
         async with asyncio.Lock():
@@ -76,13 +81,15 @@ class AsyncIOExample:
         """Demonstrate async file operations."""
         print("=== Async File Operations ===")
 
-        # Create temporary file
+        # Creates a temporary file synchronously using tempfile.NamedTemporaryFile() named tmp.
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+            # Saves its path to tmp_path.
             tmp_path = tmp.name
+            # Writes a short text to it: "Hello, Async World!\nThis is a test file."
             tmp.write("Hello, Async World!\nThis is a test file.")
 
         try:
-            # Read file asynchronously
+            # Read file's content i.e. "Hello, Async World!\nThis is a test file." asynchronously
             content = await self.async_file_read(tmp_path)
             print(f"File content: {repr(content)}")
 
@@ -178,11 +185,11 @@ class AsyncIOExample:
             writer.write(message.encode())
             await writer.drain()
 
-            # Read response
-            response = await reader.read(1024)
+            # Read response upto 1024 bytes
+            response = await reader.read(1024) # read() is a blocking operation that waits until the data is available
             response_str = response.decode()
 
-            writer.close()
+            writer.close() # close the writer stream
             await writer.wait_closed()
 
             return response_str
@@ -200,31 +207,39 @@ class AsyncIOExample:
         """
         async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             """Handle a client connection."""
-            addr = writer.get_extra_info('peername')
+            addr = writer.get_extra_info('peername') # gives (ip, port) of the client
             print(f"📡 New connection from {addr}")
 
             try:
-                # Read data
-                data = await reader.read(1024)
-                message = data.decode().strip()
-
+                # Read bytes data upto 1024 bytes, ✅ Because this is await, the server coroutine pauses while waiting, allowing other clients to run.
+                # So even with one thread, multiple clients can be served concurrently — cooperative multitasking.
+                data = await reader.read(1024) # It suspends until some bytes arrive on the socket or the connection closes. When data arrives, it’s returned as bytes.
+                message = data.decode().strip() # decode the bytes data to a string and strip any newlines and whitespaces
                 print(f"📨 Received: {message}")
 
                 # Process and respond
                 response = f"Echo: {message.upper()}"
-                writer.write(response.encode())
-                await writer.drain()
+                writer.write(response.encode()) # buffers the outgoing bytes
+                await writer.drain() # ensures all buffered data is actually sent over the network (flushes the buffer) and again await is non-blocking — while sending large data, the coroutine yields so others can run.
 
             except Exception as e:
                 print(f"❌ Error handling client: {e}")
             finally:
-                writer.close()
-                await writer.wait_closed()
-
+                writer.close() # begins closing the writer stream
+                await writer.wait_closed() # ensures the writer stream is fully closed and even if there's an error this method ensures writer stream closed properly.
+        
         print(f"🚀 Starting server on {host}:{port}")
 
         server = await asyncio.start_server(handle_client, host, port)
 
+        """
+        -- async with server: ensures that when the block exits, the server is properly closed (like a context manager).
+        -- await server.serve_forever() runs an infinite event loop that:
+        -- Accepts new connections.
+        -- Spawns handle_client tasks.
+        -- Keeps serving until the server is cancelled or stopped.
+        --The coroutine serve_forever() runs until externally cancelled — e.g., from another task:
+        """
         async with server:
             await server.serve_forever()
 
@@ -254,7 +269,12 @@ class AsyncIOExample:
                 print(f"  '{msg}' -> '{resp.strip()}'")
 
         finally:
-            # Stop server
+            """
+            -- When it’s cancelled, the async with block ensures cleanup:
+            -- closes listening sockets,
+            -- stops accepting new clients,
+            -- allows existing client coroutines to finish.
+            """
             server_task.cancel()
             try:
                 await server_task
@@ -366,10 +386,13 @@ class AsyncIOExample:
             ("Cache Lookup", 0.1)
         ]
 
-        # Execute all operations concurrently
+        # get_event_loop().time() gives a high-resolution monotonic clock suitable for benchmarking.
+        # It’s better than time.time() for measuring elapsed time, because it’s unaffected by system clock changes.
         start_time = asyncio.get_event_loop().time()
 
+        # You create five coroutine objects (not yet running).
         tasks = [io_operation(name, duration) for name, duration in operations]
+        # schedules all of them to run concurrently under the event loop and waits for all to finish.
         results = await asyncio.gather(*tasks)
 
         total_time = asyncio.get_event_loop().time() - start_time
@@ -382,9 +405,9 @@ class AsyncIOExample:
         sequential_time = sum(duration for _, duration in operations)
         speedup = sequential_time / total_time
 
-        print(".2f")
-        print(".2f")
-        print()
+        print(f"\nTotal time: {total_time:.2f}s")
+        print(f"Sequential time (if done one by one): {sequential_time:.2f}s")
+        print(f"Speedup: {speedup:.2f}x\n")
 
     async def error_handling_in_async_io(self) -> None:
         """Demonstrate error handling in async I/O operations."""
@@ -435,6 +458,12 @@ class AsyncIOExample:
         ]
 
         # Gather with exception handling
+
+        """
+        --gather(..., return_exceptions=True) is good when you want to proceed on errors and collapse results. Otherwise gather raises on first exception.
+        -- For production, consider per-task timeout with asyncio.wait_for to prevent hung ops.
+        -- Classify/log exceptions properly. Good pattern.
+        """
         results = await asyncio.gather(*concurrent_ops, return_exceptions=True)
 
         for i, result in enumerate(results):
@@ -447,6 +476,11 @@ class AsyncIOExample:
 
         print()
 
+    """
+    # Caveats
+      -- As before: reading/writing may be blocking if your helpers use blocking file I/O; use aiofiles or threads for real async.
+      -- Cleanups: ensure try/finally covers both source and dest removal and handle missing files gracefully.
+    """
     async def async_file_copy_example(self) -> None:
         """Demonstrate async file copy operations."""
         print("=== Async File Copy Operations ===")
@@ -490,6 +524,15 @@ class AsyncIOExample:
 
         print()
 
+    """
+    # Notes & caveats
+
+        -- Uses tempfile.mktemp() — unsafe due to race conditions. Prefer tempfile.NamedTemporaryFile(delete=False) or tempfile.mkstemp() (gives open fd).
+
+        -- batch_file_writer writes a joined JSON string — careful: splitting on \n requires exact round-trip; ensure json.dumps not producing extra newlines inside objects.
+
+        -- Verifying expected ids is good; ensure id uniqueness across batches is correct (your expected_ids assumes ids 0..14).
+    """
     async def batch_io_operations(self) -> None:
         """Demonstrate batch processing of I/O operations."""
         print("=== Batch I/O Operations ===")
@@ -581,3 +624,70 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+"""
+
+🎯 Key Concepts Demonstrated:
+File I/O with locks - Simulating async behavior for regular file operations
+Concurrent file processing - Multiple files processed simultaneously
+TCP networking - Async client/server with asyncio.open_connection() and start_server()
+HTTP clients - Using aiohttp for concurrent web requests
+Stream processing - Handling data streams with async generators
+Concurrent I/O - Multiple I/O operations running simultaneously
+Error handling - Specific exception types and concurrent error handling
+File operations - Copying, batch processing, data integrity verification
+Optional dependencies - Graceful handling when aiohttp isn't available
+🔑 Why Async I/O Matters:
+Scalability - Handle thousands of concurrent connections
+Efficiency - Non-blocking I/O prevents thread starvation
+Resource utilization - Better CPU usage for I/O-bound workloads
+Real-world patterns - File processing, network clients/servers, HTTP APIs
+Error resilience - Proper exception handling in concurrent operations
+This file shows practical async I/O patterns that are essential for building scalable network applications and services! 🌐⚡
+
+Common cross-cutting concerns & best practices
+
+Blocking file I/O: open/read/write are blocking. For heavy concurrency, use aiofiles or asyncio.to_thread/run_in_executor.
+
+Message framing for sockets: use newline or length-prefixed frames so reader.read() won't hang waiting for EOF. Use reader.readline() for line-based protocols.
+
+Server shutdown: server_task.cancel() is okay, but the more explicit pattern is to call server.close() and await server.wait_closed() and ensure client handlers finish or are cancelled.
+
+Temp file creation: avoid mktemp(). Use NamedTemporaryFile or mkstemp() and delete safely.
+
+Error handling in gather:
+
+Default gather will raise on first exception.
+
+Use return_exceptions=True to get per-task exceptions as results and handle them.
+
+Shared resource safety: if multiple coroutines write the same path, use asyncio.Lock() (shared instance) or per-file lock map.
+
+Timeouts: wrap network I/O with asyncio.wait_for(...) or use client library timeouts to avoid indefinite waits.
+
+Formatting & logging: prefer proper formatting when printing computed values (fix .2f bug).
+
+Quick summary (one-line per function)
+
+concurrent_file_processing: reads/processes/writes files concurrently — beware blocking file I/O.
+
+async_network_client: simple TCP client — ensure message framing and EOF handling.
+
+async_network_server: simple TCP server with per-client coroutine — ensure graceful shutdown.
+
+network_operations_example: coordinates server + clients as a test harness; be careful with startup timing and cancellation.
+
+async_http_client_example: concurrent HTTP fetches using aiohttp — good pattern; handle timeouts/errors.
+
+stream_processing_example: stream producer + consumer via async generator — good streaming demo.
+
+concurrent_io_operations: demonstrates concurrent I/O speedups — fix formatting bug and compute speedup correctly.
+
+error_handling_in_async_io: shows both sequential and concurrent error handling (gather with exceptions).
+
+async_file_copy_example: copy demo — again watch blocking I/O caveat.
+
+batch_io_operations: batch write/read verification — replace mktemp() and ensure robust temp file handling.
+
+"""

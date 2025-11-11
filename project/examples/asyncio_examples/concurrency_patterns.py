@@ -44,6 +44,11 @@ class ConcurrencyPatternsExample:
             "processing_time": processing_time
         }
 
+    """
+    # Pitfalls & suggestions
+    -- If any worker raises, awaiting its future will raise; catch exceptions per result if you want to continue.
+    -- If you want to cancel remaining tasks on first failure, do so explicitly.
+    """
     async def fan_out_fan_in_pattern(self) -> None:
         """Demonstrate fan-out/fan-in pattern."""
         print("=== Fan-Out/Fan-In Pattern ===")
@@ -71,63 +76,130 @@ class ConcurrencyPatternsExample:
         print(f"\nTotal results collected: {len(results)}")
         print()
 
-    async def worker_pool_pattern(self) -> None:
-        """Demonstrate worker pool pattern with queue."""
-        print("=== Worker Pool Pattern ===")
+    async def worker_pool_pattern(
+    self,
+    num_workers: int = 3,
+    work_items: Optional[list] = None,
+    timeout: Optional[float] = None,
+    exit_on_timeout: bool = True,
+    use_put_nowait: bool = False,
+) -> None:
+    """
+    Robust worker-pool with optional timeout behavior.
 
-        async def worker_pool_worker(worker_id: str, queue: asyncio.Queue) -> None:
-            """Worker that processes items from a queue."""
-            while True:
-                try:
-                    # Get work item with timeout
-                    item = await asyncio.wait_for(queue.get(), timeout=2.0)
-                    if item is None:  # Poison pill
-                        break
+    Args:
+        self: object with async worker_task(worker_id, item) coroutine.
+        num_workers: number of concurrent worker coroutines to run.
+        work_items: optional list of items to enqueue (defaults to 8 sample jobs).
+        timeout: if set (float seconds), will use asyncio.wait_for(queue.get(), timeout).
+                 If None (default) workers wait indefinitely for items.
+        exit_on_timeout: only used if timeout is set.
+            - True: worker breaks/returns on a TimeoutError (original behavior).
+            - False: worker logs idle and continues waiting (safer).
+        use_put_nowait: if True, uses put_nowait for enqueuing (fast, no backpressure).
+        Default False -> await queue.put(...) (safe with maxsize).                
+    """
 
-                    result = await self.worker_task(worker_id, item)
-                    print(f"🏭 {result['worker']} processed {result['input']} "
-                          ".2f")
+    print("=== Worker Pool Pattern ===")
 
-                    queue.task_done()
-
-                except asyncio.TimeoutError:
-                    print(f"🏭 {worker_id} timed out waiting for work")
-                    break
-                except Exception as e:
-                    print(f"🏭 {worker_id} error: {e}")
-
-        # Create work queue
-        work_queue = asyncio.Queue()
-
-        # Add work items
+    # Default sample items if none provided
+    if work_items is None:
         work_items = [f"job_{i}" for i in range(8)]
-        for item in work_items:
-            work_queue.put_nowait(item)
 
-        # Create worker pool
-        num_workers = 3
-        workers = []
+    # Create the asyncio queue (optionally you can pass maxsize to enable backpressure)
+    work_queue: asyncio.Queue = asyncio.Queue()
 
-        print(f"Starting {num_workers} workers for {len(work_items)} jobs...")
+    async def worker_pool_worker(worker_id: str, queue: asyncio.Queue):
+        """Worker coroutine: get items, process them, always call task_done()."""
+        while True:
+            # Choose whether to use a timeout on queue.get() or wait indefinitely.
+            try:
+                if timeout is None:
+                    item = await queue.get()  # blocks (suspends) until an item is available
+                else:
+                    # If timeout is set, we attempt to get an item with that timeout.
+                    item = await asyncio.wait_for(queue.get(), timeout=timeout)
+            except asyncio.TimeoutError:
+                # Timeout occurred while waiting for an item.
+                # Behavior depends on exit_on_timeout flag.
+                if exit_on_timeout:
+                    print(f"🏭 {worker_id} timed out waiting for work (exiting).")
+                    return  # Exit worker (original semantics)
+                else:
+                    print(f"🏭 {worker_id} idle for {timeout}s, continuing to wait...")
+                    continue  # Retry getting an item
 
-        for i in range(num_workers):
-            worker = asyncio.create_task(
-                worker_pool_worker(f"pool_worker_{i+1}", work_queue)
-            )
-            workers.append(worker)
+            # At this point we've successfully received an item from the queue.
+            try:
+                # Sentinel (poison pill) handling
+                if item is None:
+                    # We got the shutdown signal; break out so the worker can finish.
+                    # (task_done will be called in finally for this get)
+                    print(f"🛑 {worker_id} received shutdown sentinel")
+                    break
 
-        # Wait for all work to be completed
-        await work_queue.join()
+                # process the item (suspends inside worker_task)
+                result = await self.worker_task(worker_id, item)
 
-        # Send poison pills to stop workers
-        for _ in range(num_workers):
+                # Print nicely, handling optional processing_time metadata
+                proc_time = result.get("processing_time")
+                if proc_time is not None:
+                    print(f"🏭 {result['worker']} processed {result['input']} ({proc_time:.2f}s)")
+                else:
+                    print(f"🏭 {result['worker']} processed {result['input']}")
+
+            except Exception as e:
+                # Log and continue — always ensure task_done in finally
+                print(f"❌ {worker_id} error while processing {item}: {e}")
+            finally:
+                # IMPORTANT: always notify queue that this 'get' has been processed.
+                # This runs whether processing succeeded, raised, or the item was sentinel.
+                queue.task_done()
+
+        # Worker exiting gracefully
+        print(f"🏁 {worker_id} exiting")
+
+    # --- Producer: enqueue work items ---
+    if use_put_nowait:
+        for it in work_items:
+            work_queue.put_nowait(it)
+    else:
+        for it in work_items:
+            await work_queue.put(it)
+
+    print(f"Starting {num_workers} workers for {len(work_items)} jobs (timeout={timeout}, exit_on_timeout={exit_on_timeout})...")
+
+    # Start workers (both version does same with nuanced differences)
+
+    # workers = []
+    # for i in range(num_workers):
+    #     t = asyncio.create_task(worker_pool_worker(f"pool_worker_{i+1}", q))
+    #     workers.append(t)
+    #     await asyncio.sleep(0)  # let event loop schedule worker start
+
+    # this is list comprehension version of the above
+    workers = [
+        asyncio.create_task(worker_pool_worker(f"pool_worker_{i+1}", work_queue))
+        for i in range(num_workers)
+    ]
+
+    # suspends the caller (the coroutine that awaits it) until the queue’s internal counter unfinished_tasks becomes zero.
+    await work_queue.join()
+
+    # Enqueue one sentinel (None) per worker so they can shut down cleanly.
+    # Use await queue.put to ensure no queue-full issues
+    for _ in range(num_workers):
+        if use_put_nowait:
             work_queue.put_nowait(None)
+        else:
+            await work_queue.put(None)
 
-        # Wait for workers to finish
-        await asyncio.gather(*workers, return_exceptions=True)
+    # Wait for all worker tasks to exit. Use return_exceptions=True if you prefer not to raise.
+    await asyncio.gather(*workers, return_exceptions=True)
 
-        print("Worker pool completed all tasks!\n")
+    print("✅ Worker pool completed all tasks!\n")
 
+   
     async def pipeline_pattern(self) -> None:
         """Demonstrate pipeline pattern with multiple stages."""
         print("=== Pipeline Pattern ===")
@@ -546,3 +618,23 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+"""
+🎯 Key Concurrency Patterns Demonstrated:
+Fan-out/Fan-in - Distribute work and collect results
+Worker Pool - Fixed pool of workers processing queue items
+Pipeline - Multi-stage data processing with queues
+Producer-Consumer - Bounded buffer with backpressure
+Scatter-Gather - Distribute and collect from multiple workers
+Circuit Breaker - Fault tolerance with failure thresholds
+Timeout/Cancellation - Graceful task termination
+Map-Reduce - Parallel data processing and aggregation
+🔑 Why These Patterns Matter:
+Scalability - Handle varying workloads efficiently
+Fault Tolerance - Circuit breakers prevent cascade failures
+Resource Management - Bounded buffers prevent memory issues
+Performance - Concurrent processing maximizes throughput
+Maintainability - Well-known patterns are easier to understand
+Real-world - These patterns solve common distributed system problems
+This file provides a comprehensive toolkit of concurrency patterns essential for building robust, scalable async applications! 🚀📊
+"""

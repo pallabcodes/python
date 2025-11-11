@@ -294,3 +294,23 @@ if __name__ == "__main__":
         multiprocessing.set_start_method('spawn', force=True)
 
     main()
+
+"""
+🎯 Key Process Pool Concepts Demonstrated:
+ProcessPoolExecutor - High-level interface for process pools
+Pool.map() - Parallel map operations with ordered results
+submit() & as_completed() - Asynchronous task submission and collection
+Callbacks - Automatic handling of task completion
+multiprocessing.Pool - Lower-level pool control
+apply_async() - Individual asynchronous task submission
+starmap() - Map with multiple arguments per task
+Resource Management - Pool sizing and configuration
+Error Handling - Different strategies for ProcessPoolExecutor vs Pool
+🔑 Why Process Pools Matter:
+Abstraction - Hide complexity of process management
+Performance - Automatic load balancing across workers
+Resource Efficiency - Reuse worker processes
+Scalability - Easy to adjust pool size
+Error Isolation - Worker failures don't crash entire pool
+Memory Safety - Each worker has isolated memory space
+"""

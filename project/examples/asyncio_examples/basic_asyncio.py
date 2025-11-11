@@ -10,9 +10,9 @@ This module covers:
 - Exception handling in async code
 """
 
-import asyncio
-import time
-from typing import Any, Coroutine
+import asyncio # main package for async programming
+import time # for timing operations and delays
+from typing import Any, Coroutine # Type hints for better code readability and maintainability
 
 
 class BasicAsyncioExample:
@@ -64,14 +64,17 @@ class BasicAsyncioExample:
         print("Sequential execution:")
         start_time = time.time()
 
+        # only when result1 is done, result2 and result3 will start
         result1 = await self.simple_coroutine("A", 0.5)
         result2 = await self.simple_coroutine("B", 0.3)
         result3 = await self.simple_coroutine("C", 0.2)
 
+        # so from here, we can see that the coroutines are executed `sequentially` and all these 3 coroutines are executed one after the other and in total takes 1.0 seconds to complete
+
         sequential_time = time.time() - start_time
-        print(".2f")
-        print(f"Results: {result1}, {result2}, {result3}")
+        print(f"Sequential execution time: {sequential_time:.2f} seconds")
         print()
+        return result1, result2, result3, sequential_time
 
     async def concurrent_execution(self) -> None:
         """Demonstrate concurrent execution of coroutines."""
@@ -80,13 +83,15 @@ class BasicAsyncioExample:
         print("Concurrent execution:")
         start_time = time.time()
 
-        # Create tasks for concurrent execution
+        # Create task objects for concurrent execution however here with task coroutines has been created, ran with `juggling` not sequentially so it's faster here off course.
         task1 = asyncio.create_task(self.simple_coroutine("A", 0.5))
         task2 = asyncio.create_task(self.simple_coroutine("B", 0.3))
         task3 = asyncio.create_task(self.simple_coroutine("C", 0.2))
 
-        # Wait for all tasks to complete
+        # Wait for all tasks to complete then return the results in order
         results = await asyncio.gather(task1, task2, task3)
+
+        # once again since here it runs concurrently, it takes less than 1.0 seconds to complete.
 
         concurrent_time = time.time() - start_time
         print(".2f")
@@ -129,7 +134,7 @@ class BasicAsyncioExample:
             await asyncio.sleep(delay)
             return f"Future result: {name}"
 
-        # Create futures from coroutines
+        # Create future objects from coroutines
         future1 = asyncio.ensure_future(async_operation("A", 0.3))
         future2 = asyncio.ensure_future(async_operation("B", 0.5))
         future3 = asyncio.ensure_future(async_operation("C", 0.2))
@@ -139,7 +144,7 @@ class BasicAsyncioExample:
         print(f"Future2 done: {future2.done()}")
         print(f"Future3 done: {future3.done()}")
 
-        # Wait for futures with timeout
+        # Wait for futures with timeout, return the results in order
         done, pending = await asyncio.wait(
             [future1, future2, future3],
             timeout=1.0,
@@ -148,7 +153,7 @@ class BasicAsyncioExample:
 
         print(f"Completed: {len(done)}, Pending: {len(pending)}")
 
-        # Get results
+        # Get results from completed futures
         for future in done:
             try:
                 result = future.result()
@@ -191,7 +196,9 @@ class BasicAsyncioExample:
             failing_coroutine("C", False)
         ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # return_exceptions=True - makes gather() return exceptions instead of raising them
+        results = await asyncio.gather(*tasks, return_exceptions=True) 
+        
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 print(f"Task {chr(65+i)} failed: {result}")
@@ -204,16 +211,16 @@ class BasicAsyncioExample:
         """Demonstrate event loop information and management."""
         print("=== Event Loop Information ===")
 
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_running_loop() # gets the current event loop
 
         print(f"Event loop: {loop}")
-        print(f"Loop is running: {loop.is_running()}")
-        print(f"Loop is closed: {loop.is_closed()}")
+        print(f"Loop is running: {loop.is_running()}") # checks if the loop is currently running
+        print(f"Loop is closed: {loop.is_closed()}") # checks if the loop is closed
 
         # Get loop time
-        start_time = loop.time()
+        start_time = loop.time() # gets the current time of the loop
         await asyncio.sleep(0.1)
-        end_time = loop.time()
+        end_time = loop.time() # gets the current time of the loop
 
         print(".3f")
 
@@ -221,15 +228,15 @@ class BasicAsyncioExample:
         def callback():
             print("Callback executed in event loop")
 
-        loop.call_soon(callback)
+        loop.call_soon(callback) # schedules a callback to be executed in the event loop
 
         # Schedule delayed callback
         def delayed_callback():
             print("Delayed callback executed")
 
-        loop.call_later(0.2, delayed_callback)
+        loop.call_later(0.2, delayed_callback) # Schedules a callback to be executed after a delay
 
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.3) # waits for 0.3 seconds
         print()
 
     async def nested_coroutines(self) -> None:
@@ -320,6 +327,27 @@ async def main() -> None:
     await example.performance_comparison()
 
     print("All basic examples completed!")
+
+
+"""
+`__name__` is a special Python variable that contains the module's name
+-- When you run a Python file directly: python basic_asyncio.py, __name__ is set to "__main__"
+-- When you import the file: import basic_asyncio, __name__ is set to "basic_asyncio"
+-- Purpose: This condition is True only when the file is run directly, not when imported
+
+
+
+-- asyncio.run() is the main entry point for asyncio programs
+-- It creates a new event loop, runs the coroutine main(), and handles cleanup
+-- main() is the async function defined at line 306 that runs all the examples
+
+-- Why this pattern exists:
+-- Importable: You can import this module without running anything: from basic_asyncio import BasicAsyncioExample
+-- Executable: You can run it directly: python basic_asyncio.py
+-- Clean separation: Code inside if __name__ == "__main__": only runs when the file is executed directly
+-- Without this code: You could only import the module, not run it directly
+-- To run examples, you'd need to write separate scripts
+"""
 
 
 if __name__ == "__main__":

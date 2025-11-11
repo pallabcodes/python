@@ -1,616 +1,530 @@
 """
-Advanced async patterns and architectures.
+Advanced asyncio patterns implemented with production-minded fixes.
 
-This module covers:
-- Producer-consumer patterns
-- Data processing pipelines
-- Fan-in/fan-out patterns
-- Circuit breaker patterns
-- Retry and backoff patterns
-- Pub/sub patterns
-- Request batching patterns
-- Rate limiting patterns
+Improvements over the original:
+- Proper use of asyncio.Queue: task_done()/join(), per-consumer sentinels, bounded queues
+- Avoid holding locks while awaiting; copy subscriber lists then publish
+- Fixed many demo bugs (.2f stray prints, wrong variable names)
+- RequestBatcher: per-request Future mapping, safe wakeups, no lock-held sleeps
+- Circuit breaker: clearer state transitions and non-blocking checks
+- Rate limiter: compute exact sleep until tokens available instead of fixed polling
+- Clear cancellation handling and clean shutdowns
+
+This file is designed to be readable, correct, and suitable as a reference for senior engineers.
 """
 
 import asyncio
 import random
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from collections import deque
 
 
 class AsyncPatternsExample:
-    """
-    Examples of advanced async patterns and architectures.
-    """
+    """Collection of robust, production-aware asyncio patterns."""
 
+    # -----------------------------
+    # Producer / Consumer (bounded)
+    # -----------------------------
     async def producer_consumer_queue(self) -> None:
-        """Demonstrate producer-consumer pattern with asyncio.Queue."""
+        """Producer/consumer with bounded queue, explicit sentinels and join.
+
+        Key points:
+        - Queue(maxsize) provides backpressure automatically on put().
+        - Each consumer expects exactly one sentinel to terminate.
+        - Use task_done()/join() to know when all real work items are processed.
+        """
         print("=== Producer-Consumer with Queue ===")
 
-        async def producer(producer_id: str, queue: asyncio.Queue) -> None:
-            """Producer that generates items."""
-            for i in range(5):
-                item = f"Item-{producer_id}-{i+1}"
-                await queue.put(item)
-                print(f"📦 Producer {producer_id}: produced {item}")
-                await asyncio.sleep(random.uniform(0.1, 0.3))
+        queue: asyncio.Queue = asyncio.Queue(maxsize=3)
+        num_producers = 2
+        num_consumers = 2
 
-            # Signal completion
-            await queue.put(None)
-            print(f"📦 Producer {producer_id}: finished producing")
+        async def producer(pid: int, q: asyncio.Queue, n: int = 5) -> None:
+            for i in range(n):
+                item = f"Item-P{pid}-{i+1}"
+                await q.put(item)  # may suspend when queue is full (backpressure)
+                print(f"📦 Producer{pid}: produced {item}")
+                await asyncio.sleep(random.uniform(0.05, 0.15))
 
-        async def consumer(consumer_id: str, queue: asyncio.Queue) -> None:
-            """Consumer that processes items."""
-            items_processed = 0
+            print(f"📦 Producer{pid}: done producing")
+
+        async def consumer(cid: int, q: asyncio.Queue) -> None:
+            processed = 0
             while True:
-                item = await queue.get()
+                item = await q.get()  # suspend until available
+                try:
+                    if item is None:  # sentinel -> exit
+                        print(f"🛑 Consumer{cid}: received sentinel")
+                        return
 
-                if item is None:
-                    # Put the sentinel back for other consumers
-                    await queue.put(None)
-                    break
+                    # simulate processing
+                    await asyncio.sleep(random.uniform(0.1, 0.25))
+                    processed += 1
+                    print(f"🍽️  Consumer{cid}: processed {item}")
 
-                # Process item
-                await asyncio.sleep(random.uniform(0.2, 0.5))
-                items_processed += 1
-                print(f"🍽️  Consumer {consumer_id}: processed {item}")
+                finally:
+                    # Always mark task done for items taken from queue
+                    q.task_done()
 
-            print(f"🍽️  Consumer {consumer_id}: processed {items_processed} items")
+        # Start consumers
+        consumer_tasks = [asyncio.create_task(consumer(i + 1, queue)) for i in range(num_consumers)]
 
-        # Create shared queue
-        queue = asyncio.Queue(maxsize=3)  # Bounded queue
+        # Start producers
+        producer_tasks = [asyncio.create_task(producer(i + 1, queue)) for i in range(num_producers)]
 
-        # Start producers and consumers
-        producers = [asyncio.create_task(producer(f"P{i+1}", queue)) for i in range(2)]
-        consumers = [asyncio.create_task(consumer(f"C{i+1}", queue)) for i in range(2)]
+        # Wait for producers to finish producing
+        await asyncio.gather(*producer_tasks)
 
-        # Wait for producers to complete
-        await asyncio.gather(*producers)
+        # All producers finished; enqueue one sentinel per consumer to shut them down
+        for _ in range(num_consumers):
+            await queue.put(None)
 
-        # Wait for consumers to finish processing
-        await asyncio.gather(*consumers)
+        # Wait until all real items have been processed (task_done matched puts excluding finish sentinels)
+        await queue.join()
+
+        # Wait for consumers to exit
+        await asyncio.gather(*consumer_tasks)
 
         print("Producer-consumer pattern completed!\n")
 
+    # -----------------------------
+    # Pipeline (multi-stage)
+    # -----------------------------
     async def data_pipeline_pattern(self) -> None:
-        """Demonstrate data processing pipeline pattern."""
+        """Multi-stage pipeline using queues and explicit sentinel forwarding.
+
+        Each stage is independent; using sentinels we implement clean shutdown.
+        """
         print("=== Data Processing Pipeline ===")
 
         async def data_source() -> AsyncGenerator[Dict[str, Any], None]:
-            """Generate raw data."""
-            data_items = [
+            items = [
                 {"id": 1, "raw_value": 10, "category": "A"},
                 {"id": 2, "raw_value": 25, "category": "B"},
                 {"id": 3, "raw_value": 15, "category": "A"},
                 {"id": 4, "raw_value": 30, "category": "C"},
                 {"id": 5, "raw_value": 20, "category": "B"},
             ]
-
-            for item in data_items:
-                await asyncio.sleep(0.1)  # Simulate data arrival
-                yield item
+            for it in items:
+                await asyncio.sleep(0.05)
+                yield it
 
         async def stage1_filter(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-            """Stage 1: Filter and validate data."""
-            await asyncio.sleep(0.05)  # Processing time
-
-            if item["raw_value"] >= 15:  # Filter condition
+            await asyncio.sleep(0.02)
+            if item["raw_value"] >= 15:
                 item["stage1"] = "filtered"
                 item["filtered_at"] = time.time()
                 return item
-
-            return None  # Filtered out
+            return None
 
         async def stage2_transform(item: Dict[str, Any]) -> Dict[str, Any]:
-            """Stage 2: Transform data."""
-            await asyncio.sleep(0.08)  # Processing time
-
-            # Transform value
+            await asyncio.sleep(0.03)
             item["transformed_value"] = item["raw_value"] * 1.5
             item["stage2"] = "transformed"
             item["transformed_at"] = time.time()
             return item
 
-        async def stage3_aggregate(queue: asyncio.Queue) -> Dict[str, Any]:
-            """Stage 3: Aggregate results."""
+        async def stage3_aggregate(q: asyncio.Queue) -> Dict[str, Any]:
             results = []
-            category_totals = {}
-
+            totals: Dict[str, Dict[str, float]] = {}
             while True:
-                item = await queue.get()
+                item = await q.get()
                 if item is None:
+                    q.task_done()
                     break
+                try:
+                    results.append(item)
+                    cat = item["category"]
+                    totals.setdefault(cat, {"count": 0, "total_value": 0.0})
+                    totals[cat]["count"] += 1
+                    totals[cat]["total_value"] += item["transformed_value"]
+                finally:
+                    q.task_done()
 
-                results.append(item)
-
-                # Aggregate by category
-                cat = item["category"]
-                if cat not in category_totals:
-                    category_totals[cat] = {"count": 0, "total_value": 0}
-                category_totals[cat]["count"] += 1
-                category_totals[cat]["total_value"] += item["transformed_value"]
-
-            # Calculate averages
-            for cat, stats in category_totals.items():
+            # calculate averages
+            for cat, stats in totals.items():
                 stats["avg_value"] = stats["total_value"] / stats["count"]
 
-            return {
-                "total_processed": len(results),
-                "results": results,
-                "category_stats": category_totals
-            }
+            return {"total_processed": len(results), "results": results, "category_stats": totals}
 
-        # Set up pipeline queues
-        stage1_to_2 = asyncio.Queue()
-        stage2_to_3 = asyncio.Queue()
+        q1: asyncio.Queue = asyncio.Queue()
+        q2: asyncio.Queue = asyncio.Queue()
 
-        # Stage 1: Source -> Filter
         async def pipeline_stage1():
             async for item in data_source():
-                print(f"📥 Source: received {item}")
-
                 filtered = await stage1_filter(item)
                 if filtered:
-                    await stage1_to_2.put(filtered)
-                    print(f"🔍 Filter: passed {filtered['id']}")
-                else:
-                    print(f"🔍 Filter: rejected {item['id']}")
+                    await q1.put(filtered)
 
-        # Stage 2: Filter -> Transform
+            # done producing for stage1
+            await q1.put(None)
+
         async def pipeline_stage2():
             while True:
-                item = await stage1_to_2.get()
-                if item is None:
-                    await stage2_to_3.put(None)
-                    break
+                item = await q1.get()
+                try:
+                    if item is None:
+                        # forward sentinel and exit
+                        await q2.put(None)
+                        return
+                    transformed = await stage2_transform(item)
+                    await q2.put(transformed)
+                finally:
+                    q1.task_done()
 
-                transformed = await stage2_transform(item)
-                await stage2_to_3.put(transformed)
-                print(f"⚙️  Transform: processed {transformed['id']}")
+        # run stages
+        t1 = asyncio.create_task(pipeline_stage1())
+        t2 = asyncio.create_task(pipeline_stage2())
+        t3 = asyncio.create_task(stage3_aggregate(q2))
 
-        # Start pipeline stages
-        stage1_task = asyncio.create_task(pipeline_stage1())
-        stage2_task = asyncio.create_task(pipeline_stage2())
-        stage3_task = asyncio.create_task(stage3_aggregate(stage2_to_3))
+        await t1
+        # ensure all items from q1 processed and forwarded
+        await q1.join()
+        await t2
 
-        # Wait for stage 1 to complete
-        await stage1_task
+        # wait for aggregation
+        final = await t3
 
-        # Signal stage 2 completion
-        await stage1_to_2.put(None)
-
-        # Wait for stage 2 to complete
-        await stage2_task
-
-        # Get final results
-        final_results = await stage3_task
-
-        # Display results
         print("\n📊 Pipeline Results:")
-        print(f"  Total processed: {final_results['total_processed']}")
-
-        print("  Category statistics:")
-        for cat, stats in final_results['category_stats'].items():
+        print(f"  Total processed: {final['total_processed']}")
+        for cat, stats in final["category_stats"].items():
             print(f"    {cat}: count={stats['count']}, avg={stats['avg_value']:.1f}")
-
         print()
 
+    # -----------------------------
+    # Pub/Sub (copy subscribers, avoid long lock hold)
+    # -----------------------------
     async def pub_sub_pattern(self) -> None:
-        """Demonstrate publish-subscribe pattern."""
         print("=== Publish-Subscribe Pattern ===")
 
         class AsyncPubSub:
-            """Simple async pub-sub implementation."""
             def __init__(self):
-                self.subscribers: Dict[str, List[asyncio.Queue]] = {}
-                self.lock = asyncio.Lock()
+                self._subscribers: Dict[str, List[asyncio.Queue]] = {}
+                self._lock = asyncio.Lock()
 
             async def subscribe(self, topic: str) -> asyncio.Queue:
-                """Subscribe to a topic."""
-                async with self.lock:
-                    if topic not in self.subscribers:
-                        self.subscribers[topic] = []
+                q = asyncio.Queue()
+                async with self._lock:
+                    self._subscribers.setdefault(topic, []).append(q)
+                return q
 
-                    queue = asyncio.Queue()
-                    self.subscribers[topic].append(queue)
-                    print(f"📡 Subscribed to topic: {topic}")
-                    return queue
+            async def unsubscribe(self, topic: str, q: asyncio.Queue) -> None:
+                async with self._lock:
+                    if topic in self._subscribers and q in self._subscribers[topic]:
+                        self._subscribers[topic].remove(q)
 
             async def publish(self, topic: str, message: Any) -> None:
-                """Publish message to topic."""
-                async with self.lock:
-                    if topic in self.subscribers:
-                        # Publish to all subscribers
-                        publish_tasks = [
-                            subscriber.put(message)
-                            for subscriber in self.subscribers[topic]
-                        ]
-                        await asyncio.gather(*publish_tasks)
-                        print(f"📢 Published to {len(self.subscribers[topic])} subscribers: {topic}")
+                # Copy subscriber list under lock then release; do not await while holding lock.
+                async with self._lock:
+                    subs = list(self._subscribers.get(topic, []))
 
-            async def unsubscribe(self, topic: str, queue: asyncio.Queue) -> None:
-                """Unsubscribe from topic."""
-                async with self.lock:
-                    if topic in self.subscribers and queue in self.subscribers[topic]:
-                        self.subscribers[topic].remove(queue)
-                        print(f"📴 Unsubscribed from topic: {topic}")
+                if not subs:
+                    return
+
+                # Publish concurrently but outside the lock
+                await asyncio.gather(*(s.put(message) for s in subs))
 
         async def publisher(pubsub: AsyncPubSub, topic: str) -> None:
-            """Publisher task."""
-            messages = ["Message 1", "Message 2", "Message 3", "END"]
+            for m in ("Message 1", "Message 2", "Message 3", "END"):
+                await pubsub.publish(topic, m)
+                await asyncio.sleep(0.05)
 
-            for message in messages:
-                await pubsub.publish(topic, message)
-                await asyncio.sleep(0.3)
-
-        async def subscriber(sub_id: str, pubsub: AsyncPubSub, topic: str) -> None:
-            """Subscriber task."""
-            queue = await pubsub.subscribe(topic)
-
+        async def subscriber(name: str, pubsub: AsyncPubSub, topic: str) -> None:
+            q = await pubsub.subscribe(topic)
             try:
                 while True:
-                    message = await queue.get()
-                    if message == "END":
-                        break
-
-                    print(f"📨 Subscriber {sub_id}: received '{message}'")
-                    await asyncio.sleep(0.1)  # Simulate processing
-
+                    m = await q.get()
+                    try:
+                        if m == "END":
+                            return
+                        print(f"📨 {name} got: {m}")
+                        await asyncio.sleep(0.02)
+                    finally:
+                        q.task_done()
             finally:
-                await pubsub.unsubscribe(topic, queue)
+                await pubsub.unsubscribe(topic, q)
 
-        # Create pub-sub system
         pubsub = AsyncPubSub()
+        pub = asyncio.create_task(publisher(pubsub, "news"))
+        subs = [asyncio.create_task(subscriber(f"S{i+1}", pubsub, "news")) for i in range(3)]
 
-        # Start publisher and subscribers
-        publisher_task = asyncio.create_task(publisher(pubsub, "news"))
-        subscriber_tasks = [
-            asyncio.create_task(subscriber(f"S{i+1}", pubsub, "news"))
-            for i in range(3)
-        ]
-
-        # Wait for completion
-        await asyncio.gather(publisher_task, *subscriber_tasks)
-
+        await asyncio.gather(pub, *subs)
         print("Pub-sub pattern completed!\n")
 
+    # -----------------------------
+    # Circuit breaker (robust)
+    # -----------------------------
     async def circuit_breaker_pattern(self) -> None:
-        """Demonstrate circuit breaker pattern for fault tolerance."""
         print("=== Circuit Breaker Pattern ===")
 
         class AsyncCircuitBreaker:
-            """Async circuit breaker implementation."""
             def __init__(self, failure_threshold: int = 3, recovery_timeout: float = 2.0):
                 self.failure_threshold = failure_threshold
                 self.recovery_timeout = recovery_timeout
                 self.failure_count = 0
                 self.last_failure_time: Optional[float] = None
-                self.state = "closed"  # closed, open, half-open
-                self.lock = asyncio.Lock()
+                self.state = "closed"  # closed / open / half-open
+                self._lock = asyncio.Lock()
 
-            async def call(self, coro_func, *args, **kwargs):
-                """Execute coroutine with circuit breaker protection."""
-                async with self.lock:
+            async def call(self, func, *args, **kwargs):
+                # Read-only check under lock
+                async with self._lock:
                     if self.state == "open":
-                        if self._should_attempt_reset():
+                        if self.last_failure_time and (time.time() - self.last_failure_time) >= self.recovery_timeout:
                             self.state = "half-open"
-                            print("🔄 Circuit breaker: attempting reset")
                         else:
-                            raise Exception("Circuit breaker is OPEN")
+                            raise RuntimeError("Circuit is open")
 
                 try:
-                    result = await coro_func(*args, **kwargs)
-                    await self._on_success()
-                    return result
+                    result = await func(*args, **kwargs)
                 except Exception as e:
-                    await self._on_failure()
-                    raise e
+                    # on failure increment counter
+                    async with self._lock:
+                        self.failure_count += 1
+                        self.last_failure_time = time.time()
+                        if self.failure_count >= self.failure_threshold:
+                            self.state = "open"
+                    raise
+                else:
+                    # on success reset if needed
+                    async with self._lock:
+                        if self.state == "half-open":
+                            self.state = "closed"
+                            self.failure_count = 0
+                        else:
+                            self.failure_count = 0
+                    return result
 
-            async def _on_success(self):
-                """Handle successful call."""
-                async with self.lock:
-                    if self.state == "half-open":
-                        self.state = "closed"
-                        self.failure_count = 0
-                        print("✅ Circuit breaker: reset successful")
-                    elif self.state == "closed":
-                        self.failure_count = 0
+        async def unreliable(call_id: str) -> str:
+            if random.random() < 0.35:
+                await asyncio.sleep(0.02)
+                raise ConnectionError(call_id)
+            await asyncio.sleep(0.03)
+            return f"ok:{call_id}"
 
-            async def _on_failure(self):
-                """Handle failed call."""
-                async with self.lock:
-                    self.failure_count += 1
-                    self.last_failure_time = time.time()
-
-                    if self.failure_count >= self.failure_threshold:
-                        self.state = "open"
-                        print(f"🚫 Circuit breaker: opened after {self.failure_count} failures")
-
-            def _should_attempt_reset(self) -> bool:
-                """Check if we should attempt to reset the circuit."""
-                if self.last_failure_time is None:
-                    return True
-                return time.time() - self.last_failure_time >= self.recovery_timeout
-
-        async def unreliable_service(call_id: str) -> str:
-            """Unreliable service that may fail."""
-            if random.random() > 0.7:  # 30% failure rate
-                await asyncio.sleep(0.1)
-                raise ConnectionError(f"Service unavailable for {call_id}")
-
-            await asyncio.sleep(0.2)
-            return f"Success: {call_id}"
-
-        # Create circuit breaker
-        breaker = AsyncCircuitBreaker(failure_threshold=2, recovery_timeout=1.5)
-
-        # Test calls
-        call_ids = [f"call_{i+1}" for i in range(10)]
-
-        print("Testing circuit breaker with unreliable service:")
-        for call_id in call_ids:
+        cb = AsyncCircuitBreaker(failure_threshold=2, recovery_timeout=0.5)
+        for i in range(10):
+            cid = f"call_{i+1}"
             try:
-                result = await breaker.call(unreliable_service, call_id)
-                print(f"  ✅ {call_id}: {result}")
+                r = await cb.call(unreliable, cid)
+                print(f"  ✅ {cid}: {r}")
             except Exception as e:
-                print(f"  ❌ {call_id}: {e}")
-
-            await asyncio.sleep(0.2)
+                print(f"  ❌ {cid}: {e}")
+            await asyncio.sleep(0.05)
 
         print()
 
+    # -----------------------------
+    # Retry with exponential backoff
+    # -----------------------------
     async def retry_with_backoff_pattern(self) -> None:
-        """Demonstrate retry with exponential backoff pattern."""
         print("=== Retry with Backoff Pattern ===")
 
-        async def unreliable_operation(attempt: int) -> str:
-            """Operation that fails initially but succeeds later."""
-            # Fail first 2 attempts, succeed on 3rd
+        async def unreliable(attempt: int) -> str:
             if attempt < 3:
-                raise ConnectionError(f"Attempt {attempt} failed")
+                raise ConnectionError(f"attempt {attempt}")
+            return f"ok-{attempt}"
 
-            return f"Success on attempt {attempt}"
-
-        async def retry_with_backoff(coro_func, max_attempts: int = 5,
-                                   base_delay: float = 0.1, max_delay: float = 5.0):
-            """Retry function with exponential backoff."""
-            for attempt in range(max_attempts):
+        async def retry(coro_factory, max_attempts: int = 5, base_delay: float = 0.05, max_delay: float = 1.0):
+            for attempt in range(1, max_attempts + 1):
                 try:
-                    return await coro_func(attempt + 1)
+                    return await coro_factory(attempt)
                 except Exception as e:
-                    if attempt == max_attempts - 1:
-                        raise e  # Last attempt failed
+                    if attempt == max_attempts:
+                        raise
+                    delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+                    jitter = delay * 0.1 * random.random()
+                    to_sleep = delay + jitter
+                    print(f"  attempt={attempt} failed: {e}; backing off {to_sleep:.3f}s")
+                    await asyncio.sleep(to_sleep)
 
-                    # Calculate delay with exponential backoff
-                    delay = min(base_delay * (2 ** attempt), max_delay)
-                    # Add jitter to prevent thundering herd
-                    jitter = random.uniform(0.1, 1.0) * delay * 0.1
-                    total_delay = delay + jitter
-
-                    print(f"  Attempt {attempt + 1} failed: {e}")
-                    print(".2f")
-                    await asyncio.sleep(total_delay)
-
-            raise RuntimeError("Should not reach here")
-
-        # Test retry mechanism
-        print("Testing retry with exponential backoff:")
         try:
-            result = await retry_with_backoff(unreliable_operation, max_attempts=5)
-            print(f"  🎉 Final result: {result}")
+            res = await retry(unreliable, max_attempts=5)
+            print(f"  🎉 result: {res}")
         except Exception as e:
-            print(f"  💥 All retries failed: {e}")
+            print(f"  💥 retries failed: {e}")
 
         print()
 
+    # -----------------------------
+    # Rate limiter (token bucket, efficient wait)
+    # -----------------------------
     async def rate_limiting_pattern(self) -> None:
-        """Demonstrate rate limiting pattern."""
         print("=== Rate Limiting Pattern ===")
 
-        class AsyncRateLimiter:
-            """Token bucket rate limiter."""
+        class TokenBucket:
             def __init__(self, rate: float, capacity: int):
-                self.rate = rate  # tokens per second
-                self.capacity = capacity
-                self.tokens = capacity
-                self.last_update = time.time()
-                self.lock = asyncio.Lock()
+                self.rate = rate
+                self.capacity = float(capacity)
+                self.tokens = float(capacity)
+                self.last = time.monotonic()
+                self._lock = asyncio.Lock()
+
+            async def _refill(self) -> None:
+                now = time.monotonic()
+                elapsed = now - self.last
+                self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
+                self.last = now
 
             async def acquire(self, tokens: int = 1) -> bool:
-                """Acquire tokens from the bucket."""
-                async with self.lock:
-                    now = time.time()
-                    # Add tokens based on time passed
-                    elapsed = now - self.last_update
-                    self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
-                    self.last_update = now
-
-                    # Check if we have enough tokens
+                async with self._lock:
+                    await self._refill()
                     if self.tokens >= tokens:
                         self.tokens -= tokens
                         return True
-
                     return False
 
-            async def wait_for_tokens(self, tokens: int = 1) -> None:
-                """Wait until tokens are available."""
-                while not await self.acquire(tokens):
-                    # Wait a bit before retrying
-                    await asyncio.sleep(0.1)
+            async def wait(self, tokens: int = 1) -> None:
+                while True:
+                    async with self._lock:
+                        await self._refill()
+                        if self.tokens >= tokens:
+                            self.tokens -= tokens
+                            return
+                        # compute precise sleep until tokens available
+                        need = tokens - self.tokens
+                        sleep_time = need / self.rate if self.rate > 0 else 0.1
+                    await asyncio.sleep(max(0.001, sleep_time))
 
-        async def rate_limited_task(task_id: str, limiter: AsyncRateLimiter) -> None:
-            """Task that respects rate limits."""
-            await limiter.wait_for_tokens()
-            print(f"🚀 Task {task_id}: executing")
-            await asyncio.sleep(0.1)  # Simulate work
-            print(f"✅ Task {task_id}: completed")
+        limiter = TokenBucket(rate=10, capacity=5)
+        async def work(i: int):
+            await limiter.wait(1)
+            print(f"🚀 task {i} running")
+            await asyncio.sleep(0.01)
 
-        # Create rate limiter (10 requests per second, capacity 5)
-        limiter = AsyncRateLimiter(rate=10, capacity=5)
-
-        print("Testing rate limiting (10 req/sec):")
-        start_time = time.time()
-
-        # Launch many tasks simultaneously
-        tasks = [rate_limited_task(f"T{i+1}", limiter) for i in range(15)]
+        tasks = [asyncio.create_task(work(i)) for i in range(15)]
         await asyncio.gather(*tasks)
+        print("Rate limiting completed\n")
 
-        total_time = time.time() - start_time
-        print(".2f")
-        print(".1f")
-        print()
-
+    # -----------------------------
+    # Request batcher (fixed)
+    # -----------------------------
     async def request_batching_pattern(self) -> None:
-        """Demonstrate request batching pattern for efficiency."""
         print("=== Request Batching Pattern ===")
 
         async def process_batch(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-            """Process a batch of requests efficiently."""
-            print(f"🔄 Processing batch of {len(batch)} requests...")
-
-            # Simulate batch processing overhead (fixed cost)
-            await asyncio.sleep(0.2)  # Batch setup time
-
+            await asyncio.sleep(0.02)  # simulate batch overhead
             results = []
-            for request in batch:
-                # Simulate individual processing time
-                await asyncio.sleep(0.05)
-                result = {
-                    "request_id": request["id"],
-                    "result": f"processed_{request['data']}",
-                    "batch_size": len(batch)
-                }
-                results.append(result)
-
-            print(f"✅ Batch processed: {len(results)} results")
+            for req in batch:
+                await asyncio.sleep(0.005)  # per-item work
+                results.append({"request_id": req["id"], "result": f"ok_{req['id']}"})
             return results
 
         class RequestBatcher:
-            """Batch requests for efficient processing."""
-            def __init__(self, batch_size: int = 5, timeout: float = 1.0):
+            def __init__(self, batch_size: int = 5, timeout: float = 0.2):
                 self.batch_size = batch_size
                 self.timeout = timeout
-                self.pending_requests: deque = deque()
-                self.lock = asyncio.Lock()
-                self.event = asyncio.Event()
+                self._pending: deque = deque()
+                self._futures: Dict[str, asyncio.Future] = {}
+                self._lock = asyncio.Lock()
+                self._wakeup = asyncio.Event()
+                self._running = True
 
-            async def submit_request(self, request: Dict[str, Any]) -> Any:
-                """Submit a request for batching."""
-                async with self.lock:
-                    self.pending_requests.append(request)
-                    request_count = len(self.pending_requests)
-
-                    # If we have enough requests, trigger processing
-                    if request_count >= self.batch_size:
-                        self.event.set()
-                    else:
-                        self.event.clear()
-
-                # Wait for batch processing or timeout
+            async def submit(self, request: Dict[str, Any]) -> Any:
+                loop = asyncio.get_running_loop()
+                fut = loop.create_future()
+                async with self._lock:
+                    self._pending.append(request)
+                    self._futures[request["id"]] = fut
+                    if len(self._pending) >= self.batch_size:
+                        self._wakeup.set()
                 try:
-                    await asyncio.wait_for(self.event.wait(), timeout=self.timeout)
-                except asyncio.TimeoutError:
-                    # Timeout - process current batch anyway
-                    pass
+                    # wait either until our future is set by batch processor or timeout
+                    await asyncio.wait_for(fut, timeout=self.timeout + 1.0)
+                    return fut.result()
+                except Exception:
+                    # If timeout or cancellation, try best-effort: return partial or raise
+                    if not fut.done():
+                        fut.cancel()
+                    raise
 
-                # Wait for our result
-                return await self._wait_for_result(request)
+            async def _run(self) -> None:
+                while self._running:
+                    try:
+                        # Wait for wakeup or timeout
+                        try:
+                            await asyncio.wait_for(self._wakeup.wait(), timeout=self.timeout)
+                        except asyncio.TimeoutError:
+                            pass
 
-            async def _wait_for_result(self, request: Dict[str, Any]) -> Any:
-                """Wait for the result of a specific request."""
-                # In a real implementation, you'd track individual requests
-                # For demo, just return a mock result
-                await asyncio.sleep(0.01)
-                return f"result_for_{request['id']}"
-
-            async def process_batches(self) -> None:
-                """Process batches as they become available."""
-                while True:
-                    async with self.lock:
-                        if len(self.pending_requests) >= self.batch_size:
+                        async with self._lock:
+                            if not self._pending:
+                                self._wakeup.clear()
+                                continue
+                            # build a batch up to batch_size
                             batch = []
-                            for _ in range(self.batch_size):
-                                batch.append(self.pending_requests.popleft())
-                        else:
-                            await asyncio.sleep(0.1)
-                            continue
+                            for _ in range(min(self.batch_size, len(self._pending))):
+                                batch.append(self._pending.popleft())
+                            if not self._pending:
+                                self._wakeup.clear()
 
-                    # Process the batch
-                    results = await process_batch(batch)
+                        # process batch outside lock
+                        results = await process_batch(batch)
 
-                    # Signal completion
-                    self.event.set()
+                        # set results back to futures
+                        async with self._lock:
+                            for r in results:
+                                rid = r["request_id"]
+                                fut = self._futures.pop(rid, None)
+                                if fut and not fut.done():
+                                    fut.set_result(r)
+                    except Exception as e:
+                        # log and continue; ensure we don't die silently
+                        print(f"Batcher loop error: {e}")
 
-        # Create batcher
-        batcher = asyncio.create_task(RequestBatcher(batch_size=3, timeout=2.0).process_batches())
+            def start(self) -> asyncio.Task:
+                return asyncio.create_task(self._run())
 
-        # Submit requests
-        requests = [{"id": f"req_{i+1}", "data": f"data_{i+1}"} for i in range(8)]
+            async def stop(self) -> None:
+                self._running = False
+                self._wakeup.set()
 
-        print("Submitting requests for batching:")
-        submit_tasks = [batcher.submit_request(req) for req in requests]
+        batcher = RequestBatcher(batch_size=3, timeout=0.1)
+        bg = batcher.start()
 
-        results = await asyncio.gather(*submit_tasks)
+        requests = [{"id": f"req_{i}", "data": f"x{i}"} for i in range(8)]
+        submit_tasks = [asyncio.create_task(batcher.submit(r)) for r in requests]
 
-        print("All requests completed:")
-        for i, result in enumerate(results):
-            print(f"  {requests[i]['id']}: {result}")
+        results = []
+        for t in submit_tasks:
+            try:
+                results.append(await t)
+            except Exception as e:
+                results.append({"error": str(e)})
 
-        # Stop batcher
-        batcher.cancel()
-        try:
-            await batcher
-        except asyncio.CancelledError:
-            pass
+        await batcher.stop()
+        await bg
+
+        print("Batching results:")
+        for r in results:
+            print(" ", r)
 
         print()
 
+    # -----------------------------
+    # Fan-out / Fan-in (as_completed) – explicit tasks
+    # -----------------------------
     async def fan_out_fan_in_pattern(self) -> None:
-        """Demonstrate fan-out/fan-in pattern."""
         print("=== Fan-Out/Fan-In Pattern ===")
 
         async def worker(task_id: str, data: Any) -> Dict[str, Any]:
-            """Worker that processes data."""
-            # Simulate variable processing time
-            await asyncio.sleep(random.uniform(0.1, 0.4))
+            await asyncio.sleep(random.uniform(0.01, 0.08))
+            return {"task_id": task_id, "input": data, "output": f"processed_{data}", "worker": f"w{random.randint(1,3)}"}
 
-            result = {
-                "task_id": task_id,
-                "input": data,
-                "output": f"processed_{data}",
-                "worker": f"worker_{random.randint(1, 3)}"
-            }
-            return result
+        items = [f"item_{i}" for i in range(12)]
+        coros = [asyncio.create_task(worker(f"t{i}", it)) for i, it in enumerate(items)]
 
-        # Generate work items
-        work_items = [f"item_{i+1}" for i in range(12)]
-        print(f"Work items: {work_items}")
-
-        # Fan-out: Distribute work to workers
-        print("📤 Fan-out: Distributing work...")
-        worker_tasks = [
-            worker(f"task_{i+1}", item)
-            for i, item in enumerate(work_items)
-        ]
-
-        # Fan-in: Collect results as they complete
-        print("📥 Fan-in: Collecting results...")
         results = []
-        for coro in asyncio.as_completed(worker_tasks):
-            result = await coro
-            results.append(result)
-            print(f"  ✓ Completed: {result['task_id']} -> {result['output']}")
+        for fut in asyncio.as_completed(coros):
+            r = await fut
+            results.append(r)
+            print(f" ✓ {r['task_id']} -> {r['output']}")
 
-        print(f"\nFan-out/fan-in completed: {len(results)} results processed")
-        print()
+        print(f"fan-out/fan-in done: {len(results)} results\n")
 
 
 async def main() -> None:
-    """Run all async patterns examples."""
-    print("Asyncio Patterns Examples")
-    print("=" * 25)
-
     example = AsyncPatternsExample()
 
     await example.producer_consumer_queue()
@@ -622,8 +536,32 @@ async def main() -> None:
     await example.request_batching_pattern()
     await example.fan_out_fan_in_pattern()
 
-    print("All async patterns examples completed!")
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+"""
+🎯 Key Advanced Patterns Demonstrated:
+Producer-Consumer - Bounded queues with multiple producers/consumers
+Data Pipeline - Multi-stage async processing with queues between stages
+Pub-Sub - Topic-based message distribution to multiple subscribers
+Circuit Breaker - Fault tolerance with failure thresholds and recovery
+Retry with Backoff - Exponential backoff with jitter to prevent thundering herd
+Rate Limiting - Token bucket algorithm for request throttling
+Request Batching - Group requests for efficient batch processing
+Fan-Out/Fan-In - Distribute work and collect results concurrently
+
+🔑 Why These Patterns Matter:
+Scalability - Handle thousands of concurrent operations
+Fault Tolerance - Circuit breakers and retries prevent cascade failures
+Efficiency - Batching and rate limiting optimize resource usage
+Reliability - Pub-sub and pipelines decouple components
+Performance - Concurrent processing maximizes throughput
+Real-world - These patterns solve production system challenges
+This file provides a comprehensive toolkit of advanced async patterns essential for building production-grade concurrent applications! 🚀⚡📊
+"""

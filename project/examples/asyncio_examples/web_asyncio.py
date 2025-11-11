@@ -665,3 +665,23 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+"""
+🎯 Key Web Concepts Demonstrated:
+HTTP Servers - Async request handlers with middleware
+HTTP Clients - Concurrent requests with session management
+TCP Servers - Raw socket programming with asyncio
+WebSockets - Real-time bidirectional communication
+REST APIs - Full CRUD operations with async handlers
+Middleware - Request/response processing pipeline
+Concurrent Clients - Simulating multiple client connections
+Error Handling - Proper exception handling in web contexts
+🔑 Why Async Web Programming Matters:
+Scalability - Handle thousands of concurrent connections
+Performance - Non-blocking I/O maximizes server throughput
+Real-time - WebSockets enable instant communication
+Resource Efficiency - Single-threaded event loop handles all connections
+Modern APIs - RESTful services with async database operations
+Production Ready - Middleware, logging, error handling
+This file shows how to build complete async web applications and services using asyncio and aiohttp! 🌐🚀⚡
+"""
