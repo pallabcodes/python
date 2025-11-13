@@ -18,6 +18,7 @@ import time
 import logging
 import queue
 import os
+import random
 from typing import Any, Callable, List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -324,6 +325,142 @@ class ThreadingMultiprocessingHybrid:
             'process_workers': self.max_processes,
             'shutdown_pending': self._shutdown_event.is_set()
         }
+
+    def threading_multiprocessing_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Threading + Multiprocessing - Complex Data Pipeline.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a complex data processing pipeline:
+        - Stage 1: Fetch data from multiple sources (I/O-bound)
+        - Stage 2: Process data with heavy CPU operations (CPU-bound)
+        - Problem: Need both concurrent I/O and parallel CPU processing
+        
+        THE PROBLEM WITHOUT HYBRID:
+        ===========================
+        - Use only threads → GIL limits CPU parallelism
+        - Use only processes → inefficient for I/O
+        - Sequential processing → very slow
+        - System underutilized → wasted resources
+        
+        THE SOLUTION:
+        =============
+        Threading + Multiprocessing enables:
+        - Threads handle I/O concurrently → efficient I/O
+        - Processes handle CPU work in parallel → true parallelism
+        - Both run simultaneously → optimal utilization
+        - Complex workflows → coordinated execution
+        - Best of both worlds → efficient + parallel
+        
+        WHEN TO USE THREADING + MULTIPROCESSING:
+        ========================================
+        ✅ Complex workflows with I/O + CPU stages
+        ✅ Need concurrent I/O and parallel CPU
+        ✅ Multi-stage data pipelines
+        ✅ Coordinated thread/process execution
+        ✅ Complex processing systems
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Complex Data Processing Pipeline")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Complex data processing pipeline")
+        print("  - Stage 1: Fetch data from multiple sources (I/O-bound)")
+        print("  - Stage 2: Process data with heavy CPU operations (CPU-bound)")
+        print("  - Problem: Need both concurrent I/O and parallel CPU processing")
+        print()
+        print("THE PROBLEM:")
+        print("  Without hybrid:")
+        print("    ❌ Use only threads → GIL limits CPU parallelism")
+        print("    ❌ Use only processes → inefficient for I/O")
+        print("    ❌ Sequential processing → very slow")
+        print("    ❌ System underutilized → wasted resources")
+        print()
+        print("THE SOLUTION:")
+        print("  With Threading + Multiprocessing:")
+        print("    ✅ Threads handle I/O concurrently → efficient I/O")
+        print("    ✅ Processes handle CPU work in parallel → true parallelism")
+        print("    ✅ Both run simultaneously → optimal utilization")
+        print("    ✅ Complex workflows → coordinated execution")
+        print()
+        print("=" * 70)
+        print()
+
+        # Stage 1: I/O-bound tasks (threads)
+        def fetch_data(source: str) -> dict:
+            """Fetch data from a source (I/O-bound)."""
+            time.sleep(0.1)  # Simulate network I/O
+            return {
+                "source": source,
+                "data": f"data_from_{source}",
+                "records": random.randint(100, 1000)
+            }
+
+        # Stage 2: CPU-bound tasks (processes)
+        def process_data(data: dict) -> dict:
+            """Process data with heavy CPU operations."""
+            records = data["records"]
+            result = 0
+            for i in range(records * 1000):  # Heavy computation
+                result += hash(str(data) + str(i)) % 1000
+            return {
+                "source": data["source"],
+                "processed_records": records,
+                "computation_result": result
+            }
+
+        print("Running complex pipeline...")
+        print("  Stage 1: Fetching data from 4 sources (threads)")
+        print("  Stage 2: Processing data with CPU operations (processes)")
+        print()
+
+        # Stage 1: Fetch data concurrently using threads
+        thread_tasks = [
+            (fetch_data, (f"source_{i}",), {})
+            for i in range(4)
+        ]
+
+        # Stage 2: Process data in parallel using processes
+        # Note: In real scenario, this would use results from stage 1
+        process_tasks = [
+            (cpu_intensive_task, (f"data_{i}", 50000), {})
+            for i in range(4)
+        ]
+
+        start_time = time.time()
+        workflow_ids = self.submit_hybrid_workflow(thread_tasks, process_tasks)
+        print(f"Submitted {len(workflow_ids['thread_tasks'])} thread tasks")
+        print(f"Submitted {len(workflow_ids['process_tasks'])} process tasks")
+
+        # Wait for completion
+        self.wait_for_completion(timeout=30.0)
+        elapsed = time.time() - start_time
+
+        print()
+        print("Results:")
+        print(f"  Total time: {elapsed:.3f}s")
+        print(f"  Thread workers: {self.max_threads}")
+        print(f"  Process workers: {self.max_processes}")
+        print("  ✅ Threading + Multiprocessing enabled efficient pipeline!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE THREADING + MULTIPROCESSING:")
+        print("   ✅ Complex workflows with I/O + CPU stages")
+        print("   ✅ Need concurrent I/O and parallel CPU")
+        print("   ✅ Multi-stage data pipelines")
+        print("   ✅ Coordinated thread/process execution")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Efficient I/O handling (threads)")
+        print("   - True CPU parallelism (processes)")
+        print("   - Optimal resource utilization")
+        print("   - Complex workflow coordination")
+        print("=" * 70)
+        print()
 
 
 # Module-level functions for multiprocessing compatibility

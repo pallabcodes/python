@@ -1,3 +1,6 @@
+---
+alwaysApply: true
+---
 # File Size Enforcement Rules
 
 ## CRITICAL: These rules MUST be enforced for ALL code generation

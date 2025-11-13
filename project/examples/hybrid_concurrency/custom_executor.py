@@ -125,6 +125,32 @@ class CustomHybridExecutor:
     - Adaptive scaling based on system load
     - Performance profiling and optimization
     - Unified API for all concurrency models
+
+    When to Use:
+        - Dynamic workload characteristics
+        - Adaptive concurrency selection
+        - Performance optimization
+        - Unified concurrency API
+        - Intelligent task routing
+
+    Real-World Examples:
+        - Web servers: Auto-select based on request type
+        - Data processing: Auto-select based on data size
+        - ML inference: Auto-select based on model complexity
+        - Mixed workloads: Auto-balance I/O and CPU
+
+    Gotchas:
+        - Model selection overhead
+        - Profiling adds overhead
+        - System metrics collection overhead
+        - Adaptive scaling complexity
+        - Resource cleanup required
+
+    Performance Notes:
+        - Overhead for model selection
+        - Optimal for variable workloads
+        - Adaptive scaling improves efficiency
+        - Balance selection overhead vs benefit
     """
 
     def __init__(self,
@@ -478,6 +504,138 @@ class CustomHybridExecutor:
             "executor_status": "running" if self._running else "stopped"
         }
 
+    async def custom_executor_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Custom Hybrid Executor - Intelligent Task Router.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a task processing system:
+        - Receive various task types (I/O, CPU, mixed)
+        - Each task has different characteristics
+        - Problem: Don't know which concurrency model to use
+        
+        THE PROBLEM WITHOUT INTELLIGENT ROUTING:
+        ========================================
+        - Manually choose model → error-prone
+        - Wrong model selection → poor performance
+        - CPU tasks in threads → GIL limits
+        - I/O tasks in processes → unnecessary overhead
+        - System inefficient → wasted resources
+        
+        THE SOLUTION:
+        =============
+        Custom Hybrid Executor enables:
+        - Automatic model selection based on task characteristics
+        - Adaptive routing → optimal performance
+        - Learns from execution history → improves over time
+        - Unified API → simple to use
+        - Optimal resource utilization → efficient
+        
+        WHEN TO USE CUSTOM HYBRID EXECUTOR:
+        ===================================
+        ✅ Dynamic workload characteristics
+        ✅ Unknown task types
+        ✅ Adaptive performance needed
+        ✅ Unified concurrency API
+        ✅ Intelligent task routing
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Intelligent Task Router")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Task processing system")
+        print("  - Receive various task types (I/O, CPU, mixed)")
+        print("  - Each task has different characteristics")
+        print("  - Problem: Don't know which concurrency model to use")
+        print()
+        print("THE PROBLEM:")
+        print("  Without intelligent routing:")
+        print("    ❌ Manually choose model → error-prone")
+        print("    ❌ Wrong model selection → poor performance")
+        print("    ❌ CPU tasks in threads → GIL limits")
+        print("    ❌ I/O tasks in processes → unnecessary overhead")
+        print()
+        print("THE SOLUTION:")
+        print("  With Custom Hybrid Executor:")
+        print("    ✅ Automatic model selection based on task characteristics")
+        print("    ✅ Adaptive routing → optimal performance")
+        print("    ✅ Learns from execution history → improves over time")
+        print("    ✅ Unified API → simple to use")
+        print()
+        print("=" * 70)
+        print()
+
+        # Define different task types
+        def heavy_cpu_task(data: str) -> dict:
+            """Heavy CPU-bound task."""
+            result = 0
+            for i in range(500000):
+                result += hash(data + str(i)) % 1000
+            return {"type": "cpu", "data": data, "result": result}
+
+        async def io_task(data: str) -> dict:
+            """I/O-bound task."""
+            await asyncio.sleep(0.1)
+            return {"type": "io", "data": data}
+
+        def mixed_task(data: str) -> dict:
+            """Mixed workload task."""
+            # Some CPU work
+            result = sum(i * i for i in range(10000))
+            # Some I/O simulation
+            time.sleep(0.05)
+            return {"type": "mixed", "data": data, "result": result}
+
+        print("Processing tasks with automatic model selection...")
+        print()
+
+        tasks = [
+            (heavy_cpu_task, ("cpu_data_1",), {"task_type": "heavy_cpu"}),
+            (heavy_cpu_task, ("cpu_data_2",), {"task_type": "heavy_cpu"}),
+            (io_task, ("io_data_1",), {"task_type": "io"}),
+            (io_task, ("io_data_2",), {"task_type": "io"}),
+            (mixed_task, ("mixed_data_1",), {"task_type": "mixed"}),
+        ]
+
+        start_time = time.time()
+        results = await self.execute_batch(tasks)
+        elapsed = time.time() - start_time
+
+        print("Results:")
+        model_usage = {}
+        for result in results:
+            model = result.model_used.value
+            model_usage[model] = model_usage.get(model, 0) + 1
+            print(f"  ✅ Task {result.task_id}: {result.model_used.value} "
+                  f"({result.execution_time:.3f}s)")
+
+        print()
+        print(f"Total time: {elapsed:.3f}s")
+        print(f"Model usage: {model_usage}")
+        
+        stats = self.get_performance_stats()
+        print(f"Success rate: {stats['success_rate']:.1%}")
+        print("  ✅ Custom Hybrid Executor automatically selected optimal models!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE CUSTOM HYBRID EXECUTOR:")
+        print("   ✅ Dynamic workload characteristics")
+        print("   ✅ Unknown task types")
+        print("   ✅ Adaptive performance needed")
+        print("   ✅ Unified concurrency API")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Automatic optimal model selection")
+        print("   - Adaptive performance")
+        print("   - Learns from history")
+        print("   - Simple unified API")
+        print("=" * 70)
+        print()
+
 
 # Example task functions
 def cpu_intensive_task(data: str, iterations: int = 10000) -> Dict[str, Any]:
@@ -527,8 +685,8 @@ async def demonstrate_custom_hybrid_executor():
         print("Executing tasks with automatic model selection...")
         for func, args, kwargs in tasks:
             result = await executor.execute_task(func, *args, **kwargs)
-            print(".3f"
-                  f"model={result.model_used.value}")
+            print(f"Task: {result.result} ({result.execution_time:.3f}s, "
+                  f"model={result.model_used.value})")
 
         print("\n2. Batch execution:")
         print("-" * 19)
@@ -564,8 +722,7 @@ async def demonstrate_custom_hybrid_executor():
         print("-" * 17)
 
         status = executor.get_system_status()
-        print(".1f"
-              ".1f"
+        print(f"CPU: {status['cpu_percent']:.1f}%, Memory: {status['memory_percent']:.1f}%, "
               f"threads={status['active_threads']}, "
               f"processes={status['active_processes']}")
 

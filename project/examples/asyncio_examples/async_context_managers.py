@@ -18,51 +18,131 @@ from typing import Any, AsyncGenerator, Optional # Type hints for better code re
 class AsyncContextManagerExample:
     """
     Examples of async context managers for resource management.
+
+    Async context managers ensure proper resource acquisition and cleanup in async code.
+    They follow the RAII (Resource Acquisition Is Initialization) pattern and guarantee
+    cleanup even when exceptions occur.
+
+    When to Use:
+        - Managing async resources (connections, locks, files)
+        - Ensuring cleanup happens even on exceptions
+        - Simplifying resource management code
+        - Building reusable resource management patterns
+        - Implementing database connection pools
+
+    Real-World Examples:
+        - Database connections: Acquire connection, use it, release automatically
+        - File handles: Open file, read/write, close automatically
+        - Network connections: Connect, communicate, disconnect automatically
+        - Locks: Acquire lock, use critical section, release automatically
+        - Transactions: Begin transaction, execute operations, commit/rollback
+
+    Gotchas:
+        - __aenter__ and __aexit__ are called automatically by async with
+        - __aexit__ receives exception info; return True to suppress exception
+        - Resources cleaned up in reverse order of acquisition
+        - Exceptions in __aenter__ prevent __aexit__ from being called
+        - Use @asynccontextmanager for simpler generator-based managers
+
+    Performance Notes:
+        - Minimal overhead compared to manual try/finally
+        - Cleanup guaranteed even on exceptions
+        - Can stack multiple managers efficiently
+        - Prefer context managers over manual cleanup
     """
 
     class AsyncTimer:
-        """Async context manager that measures execution time."""
+        """
+        Async context manager that measures execution time.
 
-        # Called when entering async with. Initializes the timer and returns it
+        Demonstrates a simple async context manager for timing operations.
+        Useful for performance measurement and debugging.
+
+        When to Use:
+            - Measuring async operation performance
+            - Debugging slow operations
+            - Performance profiling
+            - Timing critical sections
+            - Benchmarking async code
+
+        Real-World Examples:
+            - API call timing: Measure API response times
+            - Database query timing: Measure query execution time
+            - Processing timing: Measure data processing time
+            - Request timing: Measure request handling time
+
+        Gotchas:
+            - Start time set in __aenter__
+            - Duration calculated in __aexit__
+            - Exception info available in __aexit__
+            - Always called even on exceptions
+        """
+
         def __init__(self, name: str):
+            """Initialize timer with a name."""
             self.name = name
             self.start_time: Optional[float] = None
 
-        # Called when exiting async with. Calculates and prints duration, handles exceptions
         async def __aenter__(self) -> 'AsyncTimer':
-            """Enter the context manager."""
+            """Enter the context manager and start timing."""
             self.start_time = time.time()
             print(f"⏱️  Timer '{self.name}' started")
             return self
 
         async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-            """Exit the context manager."""
+            """Exit the context manager and print duration."""
             if self.start_time is not None:
                 duration = time.time() - self.start_time
-                print(".2f")
+                print(f"⏱️  Timer '{self.name}' finished in {duration:.2f}s")
                 if exc_type:
                     print(f"❌ Timer '{self.name}' exited with exception: {exc_type.__name__}")
 
     class AsyncResource:
-        """Example async resource that needs proper cleanup."""
+        """
+        Example async resource that needs proper cleanup.
+
+        Demonstrates proper resource acquisition and cleanup pattern.
+        Ensures resources are always released, even on exceptions.
+
+        When to Use:
+            - Managing async resources (connections, handles, locks)
+            - Ensuring cleanup happens automatically
+            - Building resource management patterns
+            - Implementing connection pools
+            - Managing temporary resources
+
+        Real-World Examples:
+            - Database connections: Acquire, use, release
+            - File handles: Open, read/write, close
+            - Network sockets: Connect, communicate, disconnect
+            - Locks: Acquire, use critical section, release
+            - Transactions: Begin, execute, commit/rollback
+
+        Gotchas:
+            - __aexit__ always called, even on exceptions
+            - Cleanup should be idempotent (safe to call multiple times)
+            - Exception info available in __aexit__ for logging
+            - Don't raise exceptions in __aexit__ unless suppressing original
+            - Resource state should be checked before cleanup
+        """
 
         def __init__(self, resource_id: str):
+            """Initialize resource with an ID."""
             self.resource_id = resource_id
             self.acquired = False
             self.cleaned_up = False
 
-        # Simulated async resource acquisition
         async def __aenter__(self) -> 'AsyncResource':
-            """Acquire the resource."""
+            """Acquire the resource asynchronously."""
             print(f"🔓 Acquiring resource '{self.resource_id}'...")
             await asyncio.sleep(0.1)  # Simulate acquisition time
             self.acquired = True
             print(f"✅ Resource '{self.resource_id}' acquired")
             return self
 
-        # Called when exiting async with. Calculates and prints duration, handles exceptions and Always called for cleanup, even if exceptions occur.
         async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-            """Release the resource."""
+            """Release the resource. Always called, even on exceptions."""
+            if self.acquired and not self.cleaned_up:
             print(f"🔒 Releasing resource '{self.resource_id}'...")
             await asyncio.sleep(0.05)  # Simulate cleanup time
             self.cleaned_up = True
@@ -76,7 +156,29 @@ class AsyncContextManagerExample:
             return f"Used resource {self.resource_id}"
 
     async def basic_async_context_manager(self) -> None:
-        """Demonstrate basic async context manager usage."""
+        """
+        Demonstrate basic async context manager usage.
+
+        Shows the simplest pattern: async with statement automatically
+        calls __aenter__ and __aexit__ methods.
+
+        When to Use:
+            - Learning async context manager basics
+            - Timing operations
+            - Simple resource management
+            - Understanding async with syntax
+
+        Real-World Examples:
+            - Timing API calls: Measure response time
+            - Performance profiling: Profile function execution
+            - Resource timing: Measure resource usage time
+
+        Gotchas:
+            - async with automatically calls __aenter__ and __aexit__
+            - No manual cleanup needed
+            - Exception-safe by default
+            - Cleaner than try/finally blocks
+        """
         print("=== Basic Async Context Manager ===")
 
         async with self.AsyncTimer("basic_example"):
@@ -86,7 +188,31 @@ class AsyncContextManagerExample:
         print()
 
     async def resource_management(self) -> None:
-        """Demonstrate resource acquisition and cleanup."""
+        """
+        Demonstrate resource acquisition and cleanup.
+
+        Shows how resources are automatically cleaned up when exiting
+        the async with block, even if exceptions occur.
+
+        When to Use:
+            - Managing resources that need cleanup
+            - Ensuring resources are released
+            - Building resource management patterns
+            - Preventing resource leaks
+
+        Real-World Examples:
+            - Database connections: Always close connections
+            - File handles: Always close files
+            - Network connections: Always disconnect
+            - Locks: Always release locks
+            - Transactions: Always commit or rollback
+
+        Gotchas:
+            - Cleanup happens automatically
+            - Works even if exceptions occur
+            - No need for try/finally blocks
+            - Resource state managed internally
+        """
         print("=== Resource Management ===")
 
         # Resource is automatically cleaned up when exiting the async with block
@@ -97,7 +223,31 @@ class AsyncContextManagerExample:
         print("Resource automatically cleaned up!\n")
 
     async def exception_handling_in_context(self) -> None:
-        """Demonstrate exception handling in async context managers."""
+        """
+        Demonstrate exception handling in async context managers.
+
+        Shows that cleanup happens even when exceptions occur.
+        This is a key benefit of context managers.
+
+        When to Use:
+            - Ensuring cleanup on errors
+            - Building robust resource management
+            - Handling exceptions gracefully
+            - Preventing resource leaks on errors
+
+        Real-World Examples:
+            - Database errors: Close connection even on query errors
+            - File errors: Close file even on read/write errors
+            - Network errors: Disconnect even on communication errors
+            - Transaction errors: Rollback on exceptions
+
+        Gotchas:
+            - __aexit__ receives exception info (exc_type, exc_val, exc_tb)
+            - Return True from __aexit__ to suppress exception
+            - Cleanup always happens, even on exceptions
+            - Exception info useful for logging
+            - Don't raise new exceptions in __aexit__ unless suppressing
+        """
         print("=== Exception Handling in Context Managers ===")
 
         try:
@@ -236,11 +386,34 @@ class AsyncContextManagerExample:
         """
         Example async context manager for database connection.
 
+        Demonstrates using @asynccontextmanager decorator to create
+        context managers from async generator functions. Simpler than
+        implementing __aenter__ and __aexit__ manually.
+
+        When to Use:
+            - Creating context managers from generator functions
+            - Managing database connections
+            - Simpler syntax than class-based managers
+            - One-time resource management
+
+        Real-World Examples:
+            - Database connections: Connect, use, disconnect
+            - Connection pools: Get connection, use, return to pool
+            - Transaction management: Begin, execute, commit/rollback
+            - Session management: Start session, use, end session
+
+        Gotchas:
+            - @asynccontextmanager converts generator to context manager
+            - yield provides value to async with block
+            - Code before yield is __aenter__, after is __aexit__
+            - finally block ensures cleanup
+            - Exception handling works normally
+
         Args:
             connection_string: Database connection string
 
         Yields:
-            Database connection info
+            Database connection dictionary with connection info
         """
         print(f"📡 Connecting to database: {connection_string}")
         await asyncio.sleep(0.2)  # Simulate connection time
@@ -284,11 +457,33 @@ class AsyncContextManagerExample:
         """
         Context manager that acquires and releases an async lock.
 
+        Demonstrates wrapping existing async primitives with context managers
+        for cleaner syntax and guaranteed cleanup.
+
+        When to Use:
+            - Wrapping locks with context managers
+            - Ensuring locks are always released
+            - Cleaner lock syntax
+            - Preventing lock leaks
+
+        Real-World Examples:
+            - Critical sections: Acquire lock, execute, release
+            - Resource protection: Protect shared resources
+            - Synchronization: Coordinate concurrent access
+            - Deadlock prevention: Ensure locks are released
+
+        Gotchas:
+            - Lock acquired before yield
+            - Lock released in finally block
+            - Works even if exception occurs
+            - Simpler than manual acquire/release
+            - Can wrap any async primitive
+
         Args:
             lock: The asyncio.Lock to manage
 
         Yields:
-            The acquired lock
+            The acquired lock (can be used in async with block)
         """
         print("🔐 Acquiring lock...")
         await lock.acquire()
@@ -393,6 +588,137 @@ class AsyncContextManagerExample:
 
         print("All resources automatically cleaned up!\n")
 
+    async def database_connection_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Async Context Manager - Database Connection Pool.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a database service:
+        - Need database connections for queries
+        - Connections are expensive to create
+        - Problem: Must ensure connections are always closed
+        
+        THE PROBLEM WITHOUT CONTEXT MANAGERS:
+        ======================================
+        - Manual connection management → error-prone
+        - Forget to close → connection leaks
+        - Exception → connection not closed → leak
+        - Complex try/finally → verbose code
+        - Resource leaks → system degradation
+        
+        THE SOLUTION:
+        =============
+        Async context managers enable:
+        - Automatic connection acquisition/release
+        - Guaranteed cleanup even with exceptions
+        - Clean, readable code → easy to maintain
+        - Resource safety → no leaks
+        - Production-ready → reliable
+        
+        WHEN TO USE ASYNC CONTEXT MANAGERS:
+        ===================================
+        ✅ Database connections
+        ✅ Network connections
+        ✅ File handles
+        ✅ Locks and semaphores
+        ✅ Any resource needing cleanup
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Database Connection Pool")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Database service")
+        print("  - Need database connections for queries")
+        print("  - Connections are expensive to create")
+        print("  - Problem: Must ensure connections are always closed")
+        print()
+        print("THE PROBLEM:")
+        print("  Without context managers:")
+        print("    ❌ Manual connection management → error-prone")
+        print("    ❌ Forget to close → connection leaks")
+        print("    ❌ Exception → connection not closed → leak")
+        print("    ❌ Complex try/finally → verbose code")
+        print()
+        print("THE SOLUTION:")
+        print("  With async context managers:")
+        print("    ✅ Automatic connection acquisition/release")
+        print("    ✅ Guaranteed cleanup even with exceptions")
+        print("    ✅ Clean, readable code → easy to maintain")
+        print("    ✅ Resource safety → no leaks")
+        print()
+        print("=" * 70)
+        print()
+
+        class DatabaseConnection:
+            """Simulate a database connection."""
+            def __init__(self, connection_id: str):
+                self.connection_id = connection_id
+                self.is_open = False
+
+            async def connect(self) -> None:
+                """Simulate connection establishment."""
+                await asyncio.sleep(0.05)
+                self.is_open = True
+                print(f"  Connection {self.connection_id}: Opened")
+
+            async def close(self) -> None:
+                """Simulate connection closure."""
+                await asyncio.sleep(0.02)
+                self.is_open = False
+                print(f"  Connection {self.connection_id}: Closed")
+
+            async def query(self, sql: str) -> dict:
+                """Simulate executing a query."""
+                await asyncio.sleep(0.03)
+                return {"query": sql, "rows": 10}
+
+        class DatabaseConnectionManager:
+            """Async context manager for database connections."""
+            def __init__(self, connection_id: str):
+                self.connection_id = connection_id
+                self.connection = None
+
+            async def __aenter__(self) -> DatabaseConnection:
+                """Acquire connection."""
+                self.connection = DatabaseConnection(self.connection_id)
+                await self.connection.connect()
+                return self.connection
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+                """Release connection."""
+                if self.connection:
+                    await self.connection.close()
+
+        print("Using database connection with async context manager...")
+        print()
+
+        # Use connection with automatic cleanup
+        async with DatabaseConnectionManager("db_conn_1") as conn:
+            result = await conn.query("SELECT * FROM users")
+            print(f"  Query executed: {result['rows']} rows returned")
+
+        print()
+        print("  ✅ Connection automatically closed, even if exception occurs!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE ASYNC CONTEXT MANAGERS:")
+        print("   ✅ Database connections")
+        print("   ✅ Network connections")
+        print("   ✅ File handles")
+        print("   ✅ Locks and semaphores")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Guaranteed resource cleanup")
+        print("   - Exception-safe")
+        print("   - Clean, readable code")
+        print("   - Production-ready reliability")
+        print("=" * 70)
+        print()
+
 
 async def main() -> None:
     """Run all async context manager examples."""
@@ -411,6 +737,12 @@ async def main() -> None:
     await example.lock_example()
     await example.conditional_resources()
     await example.context_manager_stacking()
+
+    # Real-world scenarios
+    print("\n" + "=" * 70)
+    print("RUNNING REAL-WORLD SCENARIOS")
+    print("=" * 70 + "\n")
+    await example.database_connection_real_world_example()
 
     print("All async context manager examples completed!")
 

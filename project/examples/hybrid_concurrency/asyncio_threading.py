@@ -43,6 +43,31 @@ class AsyncioThreadingHybrid:
     - Offload CPU-bound work to thread pools
     - Maintain concurrency while avoiding GIL limitations
     - Handle errors across async/thread boundaries
+
+    When to Use:
+        - Mixing I/O and CPU-bound work
+        - Offloading CPU work from event loop
+        - Maintaining async responsiveness
+        - Hybrid async/threading patterns
+
+    Real-World Examples:
+        - Web servers: Async I/O + CPU processing
+        - Data pipelines: Async I/O + CPU transforms
+        - APIs: Async requests + CPU processing
+        - File processing: Async I/O + CPU parsing
+
+    Gotchas:
+        - GIL limits CPU parallelism
+        - Thread pool overhead
+        - Error propagation across boundaries
+        - Resource cleanup required
+        - Thread safety considerations
+
+    Performance Notes:
+        - Optimal for I/O-bound with CPU work
+        - GIL limits true CPU parallelism
+        - Thread pool overhead
+        - Balance async vs thread execution
     """
 
     def __init__(self, max_workers: int = 4, thread_name_prefix: str = "hybrid-worker"):
@@ -237,6 +262,121 @@ class AsyncioThreadingHybrid:
 
         return results
 
+    async def asyncio_threading_real_world_example(self) -> None:
+        """
+        Real-World Scenario: AsyncIO + Threading - Web API with Data Processing.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a web API that handles requests:
+        - Receive HTTP requests (I/O-bound)
+        - Process data with CPU-intensive operations
+        - Problem: Blocking CPU work freezes async event loop
+        
+        THE PROBLEM WITHOUT HYBRID:
+        ============================
+        - CPU work blocks event loop → no concurrent requests
+        - Use pure asyncio → CPU work blocks everything
+        - Use pure threading → inefficient I/O handling
+        - System unresponsive → poor user experience
+        
+        THE SOLUTION:
+        =============
+        AsyncIO + Threading enables:
+        - AsyncIO handles I/O (requests) efficiently
+        - Thread pool handles CPU work without blocking
+        - Event loop stays responsive → concurrent requests
+        - Optimal for I/O-heavy + moderate CPU workloads
+        - Best of both worlds → responsive + efficient
+        
+        WHEN TO USE ASYNCIO + THREADING:
+        =================================
+        ✅ Web APIs with CPU processing
+        ✅ I/O-heavy + moderate CPU workloads
+        ✅ Need async responsiveness
+        ✅ CPU work doesn't need true parallelism
+        ✅ GIL acceptable for CPU work
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Web API with Data Processing")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Web API handling requests")
+        print("  - Receive HTTP requests (I/O-bound)")
+        print("  - Process data with CPU-intensive operations")
+        print("  - Problem: Blocking CPU work freezes async event loop")
+        print()
+        print("THE PROBLEM:")
+        print("  Without hybrid:")
+        print("    ❌ CPU work blocks event loop → no concurrent requests")
+        print("    ❌ Use pure asyncio → CPU work blocks everything")
+        print("    ❌ Use pure threading → inefficient I/O handling")
+        print("    ❌ System unresponsive → poor user experience")
+        print()
+        print("THE SOLUTION:")
+        print("  With AsyncIO + Threading:")
+        print("    ✅ AsyncIO handles I/O (requests) efficiently")
+        print("    ✅ Thread pool handles CPU work without blocking")
+        print("    ✅ Event loop stays responsive → concurrent requests")
+        print("    ✅ Optimal for I/O-heavy + moderate CPU workloads")
+        print()
+        print("=" * 70)
+        print()
+
+        async def handle_api_request(request_id: str) -> dict:
+            """Simulate handling an API request."""
+            # I/O: Fetch data (async)
+            await asyncio.sleep(0.05)  # Simulate network I/O
+            data = f"data_for_{request_id}"
+
+            # CPU: Process data (sync, offloaded to thread pool)
+            def process_data(data: str) -> dict:
+                # Simulate CPU-intensive processing
+                result = 0
+                for i in range(50000):
+                    result += hash(data + str(i))
+                return {"request_id": request_id, "processed": result, "data": data}
+
+            cpu_result = await self.run_cpu_task(process_data, data)
+            return cpu_result.result
+
+        print("Simulating web API with 5 concurrent requests...")
+        print()
+
+        request_ids = [f"req_{i}" for i in range(5)]
+        start_time = time.time()
+
+        # Handle requests concurrently
+        tasks = [handle_api_request(rid) for rid in request_ids]
+        results = await asyncio.gather(*tasks)
+
+        elapsed = time.time() - start_time
+
+        print("Results:")
+        for result in results:
+            print(f"  ✅ {result['request_id']}: Processed successfully")
+        print(f"\nTotal time: {elapsed:.3f}s")
+        print(f"Average per request: {elapsed/len(results):.3f}s")
+        print("  ✅ AsyncIO + Threading enabled concurrent request handling!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE ASYNCIO + THREADING:")
+        print("   ✅ Web APIs with CPU processing")
+        print("   ✅ I/O-heavy + moderate CPU workloads")
+        print("   ✅ Need async responsiveness")
+        print("   ✅ CPU work doesn't need true parallelism")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Event loop stays responsive")
+        print("   - Concurrent I/O handling")
+        print("   - CPU work doesn't block")
+        print("   - Optimal for mixed workloads")
+        print("=" * 70)
+        print()
+
 
 # Example usage functions
 async def simulate_io_operation(data: str, delay: float = 0.1) -> str:
@@ -267,13 +407,13 @@ async def demonstrate_asyncio_threading_hybrid():
         io_result = await hybrid.run_io_task(
             lambda: simulate_io_operation("data1", 0.2)
         )
-        print(".3f"
-              f"is_cpu={io_result.is_cpu_bound}")
+        print(f"IO task: {io_result.result} ({io_result.execution_time:.3f}s, "
+              f"thread={io_result.thread_id}, is_cpu={io_result.is_cpu_bound})")
 
         # Run CPU task
         cpu_result = await hybrid.run_cpu_task(simulate_cpu_operation, "data2")
-        print(".3f"
-              f"is_cpu={cpu_result.is_cpu_bound}")
+        print(f"CPU task: {cpu_result.result} ({cpu_result.execution_time:.3f}s, "
+              f"thread={cpu_result.thread_id}, is_cpu={cpu_result.is_cpu_bound})")
 
         print("\n2. Mixed concurrent execution:")
         print("-" * 35)

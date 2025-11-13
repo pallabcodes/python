@@ -398,9 +398,12 @@ class MultiprocessingDemo:
         for cat, stats in results.get('categories', {}).items():
             print(f"\nCategory {cat}:")
             print(f"  Items: {stats['count']}")
-            print(".2f")
-            print(".2f")
-            print(".1f")
+            if 'avg_value' in stats:
+                print(f"  Avg Value: {stats['avg_value']:.2f}")
+            if 'min_value' in stats:
+                print(f"  Min Value: {stats['min_value']:.2f}")
+            if 'outlier_percentage' in stats:
+                print(f"  Outliers: {stats['outlier_percentage']:.1f}%")
 
         print("\n🎉 Pipeline execution successful!")
         return results
@@ -435,7 +438,7 @@ class MultiprocessingDemo:
                     sequential_results.append(result)
 
             sequential_time = time.time() - start_time
-            print(".2f")
+            print(f"Sequential: {sequential_time:.2f}s ({len(sequential_results)} items)")
 
             # Parallel processing with Pool
             start_time = time.time()
@@ -445,9 +448,112 @@ class MultiprocessingDemo:
                 parallel_results = [r for r in parallel_results_raw if r is not None]
 
             parallel_time = time.time() - start_time
-            print(".2f")
-            print(".1f")
+            speedup = sequential_time / parallel_time if parallel_time > 0 else 1.0
+            print(f"Parallel: {parallel_time:.2f}s ({len(parallel_results)} items)")
+            print(f"Speedup: {speedup:.1f}x")
 
+        print()
+
+    def complete_pipeline_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Complete Pipeline - Enterprise Data Processing System.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building an enterprise data processing system:
+        - Process millions of records from multiple sources
+        - Multi-stage pipeline: Extract → Transform → Analyze → Aggregate
+        - Problem: Need end-to-end parallel processing
+        
+        THE PROBLEM WITHOUT COMPLETE PIPELINE:
+        ======================================
+        - Sequential processing → days/weeks
+        - Single stage at a time → inefficient
+        - No monitoring → system opaque
+        - No coordination → chaos
+        - System doesn't scale
+        
+        THE SOLUTION:
+        =============
+        Complete pipeline enables:
+        - All stages run concurrently
+        - Data flows through pipeline continuously
+        - Real-time monitoring → visibility
+        - Proper coordination → reliability
+        - Scales to millions of records
+        
+        WHEN TO USE COMPLETE PIPELINE:
+        ==============================
+        ✅ Enterprise data processing
+        ✅ Multi-stage ETL pipelines
+        ✅ Real-time data processing
+        ✅ Complex workflows
+        ✅ Production data systems
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Enterprise Data Processing System")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Enterprise data processing system")
+        print("  - Process millions of records from multiple sources")
+        print("  - Multi-stage pipeline: Extract → Transform → Analyze → Aggregate")
+        print("  - Problem: Need end-to-end parallel processing")
+        print()
+        print("THE PROBLEM:")
+        print("  Without complete pipeline:")
+        print("    ❌ Sequential processing → days/weeks")
+        print("    ❌ Single stage at a time → inefficient")
+        print("    ❌ No monitoring → system opaque")
+        print("    ❌ No coordination → chaos")
+        print("    ❌ System doesn't scale")
+        print()
+        print("THE SOLUTION:")
+        print("  With complete pipeline:")
+        print("    ✅ All stages run concurrently")
+        print("    ✅ Data flows through pipeline continuously")
+        print("    ✅ Real-time monitoring → visibility")
+        print("    ✅ Proper coordination → reliability")
+        print("    ✅ Scales to millions of records")
+        print()
+        print("=" * 70)
+        print()
+        print("Running complete pipeline demonstration...")
+        print("  This demonstrates:")
+        print("  - Multi-stage parallel processing")
+        print("  - Queue-based communication")
+        print("  - Real-time status monitoring")
+        print("  - Proper resource cleanup")
+        print("  - Production-ready patterns")
+        print()
+
+        # Run the actual pipeline
+        results = self.run_complete_pipeline(dataset_size=2000)
+
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE COMPLETE PIPELINE:")
+        print("   ✅ Enterprise data processing")
+        print("   ✅ Multi-stage ETL pipelines")
+        print("   ✅ Real-time data processing")
+        print("   ✅ Complex workflows")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - End-to-end parallel processing")
+        print("   - Real-time monitoring")
+        print("   - Proper coordination")
+        print("   - Production-ready systems")
+        print("   - Scales to enterprise workloads")
+        print()
+        print("3. KEY COMPONENTS:")
+        print("   - Multi-stage processing (Extract, Transform, Aggregate)")
+        print("   - Queue-based communication")
+        print("   - Status monitoring")
+        print("   - Graceful shutdown")
+        print("   - Resource management")
+        print("=" * 70)
         print()
 
 
@@ -462,8 +568,11 @@ def main() -> None:
     # Run benchmark
     demo.benchmark_approaches()
 
-    # Run complete pipeline
-    results = demo.run_complete_pipeline(dataset_size=3000)
+    # Real-world scenario
+    print("\n" + "=" * 70)
+    print("RUNNING REAL-WORLD SCENARIO")
+    print("=" * 70 + "\n")
+    demo.complete_pipeline_real_world_example()
 
     print("\nDemo completed successfully! 🎉")
     print("\nKey takeaways:")

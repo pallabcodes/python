@@ -86,6 +86,31 @@ class CeleryHybridExecutor:
     - Priority-based task scheduling
     - Timeout and retry mechanisms
     - Integration with existing Celery infrastructure
+
+    When to Use:
+        - Distributed task processing
+        - Task queue systems
+        - Background job processing
+        - Scalable task execution
+
+    Real-World Examples:
+        - Web applications: Background tasks
+        - Data processing: Distributed processing
+        - Scheduled jobs: Cron-like tasks
+        - Microservices: Task coordination
+
+    Gotchas:
+        - Broker availability required
+        - Task serialization required
+        - Result backend needed
+        - Worker management complexity
+        - Network dependencies
+
+    Performance Notes:
+        - Network overhead for task submission
+        - Broker latency affects performance
+        - Optimal for distributed workloads
+        - Scales horizontally with workers
     """
 
     def __init__(self,

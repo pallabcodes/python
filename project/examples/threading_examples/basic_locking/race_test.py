@@ -51,11 +51,39 @@ class RaceTestResult:
 
 
 class RaceConditionDetector:
-    """Detector for race conditions in counter implementations.
+    """
+    Detector for race conditions in counter implementations.
 
     This class provides statistical testing to reliably detect
     race conditions by running multiple test iterations and
     analyzing the results for inconsistencies.
+
+    When to Use:
+        - Testing thread safety
+        - Detecting race conditions
+        - Validating thread-safe implementations
+        - Debugging concurrency issues
+        - Quality assurance
+
+    Real-World Examples:
+        - Unit testing: Test thread-safe code
+        - QA: Validate thread safety
+        - Debugging: Detect race conditions
+        - Regression testing: Prevent regressions
+        - Code review: Validate implementations
+
+    Gotchas:
+        - Race conditions may not always occur
+        - Multiple runs needed for detection
+        - Statistical analysis required
+        - False negatives possible
+        - Test configuration affects detection
+
+    Performance Notes:
+        - Multiple test runs add overhead
+        - Statistical analysis overhead
+        - Useful for validation
+        - Critical for production code
 
     Attributes:
         logger: Logger for test execution details.

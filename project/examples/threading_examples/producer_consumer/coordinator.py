@@ -9,6 +9,7 @@ management, and provides monitoring capabilities.
 import threading
 import time
 import logging
+from queue import Full
 from typing import Any, Callable, List, Dict, Optional
 
 from .producer_thread import ProducerThread
@@ -170,12 +171,21 @@ class ProducerConsumerQueue:
         producer_timeout = timeout / 2 if timeout else None
         for producer in self._producers:
             producer.join(timeout=producer_timeout)
+            if producer.is_alive():
+                self._logger.warning(
+                    f"Producer '{producer.name}' did not shutdown within timeout",
+                    extra={
+                        "queue_name": self._name,
+                        "producer_name": producer.name,
+                        "timeout": producer_timeout
+                    }
+                )
 
         # Send DONE sentinels to consumers (one per consumer)
         for _ in self._consumers:
             try:
                 self._queue.put(DONE, timeout=1.0)
-            except Exception:
+            except Full:
                 self._logger.warning(
                     "Queue full during shutdown, consumer may not receive DONE",
                     extra={"queue_name": self._name}
@@ -185,6 +195,15 @@ class ProducerConsumerQueue:
         consumer_timeout = timeout / 2 if timeout else None
         for consumer in self._consumers:
             consumer.join(timeout=consumer_timeout)
+            if consumer.is_alive():
+                self._logger.warning(
+                    f"Consumer '{consumer.name}' did not shutdown within timeout",
+                    extra={
+                        "queue_name": self._name,
+                        "consumer_name": consumer.name,
+                        "timeout": consumer_timeout
+                    }
+                )
 
         self._logger.info(
             f"ProducerConsumerQueue '{self._name}' shutdown complete",
@@ -209,6 +228,8 @@ class ProducerConsumerQueue:
                 if remaining <= 0:
                     return False
                 producer.join(timeout=remaining)
+                if producer.is_alive():
+                    return False  # Producer didn't complete within timeout
             else:
                 producer.join()
 
@@ -218,6 +239,8 @@ class ProducerConsumerQueue:
                 if remaining <= 0:
                     return False
                 consumer.join(timeout=remaining)
+                if consumer.is_alive():
+                    return False  # Consumer didn't complete within timeout
             else:
                 consumer.join()
 

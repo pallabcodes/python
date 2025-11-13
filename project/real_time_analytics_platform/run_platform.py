@@ -72,6 +72,116 @@ async def run_platform_only():
         await platform.stop()
 
 
+async def run_advanced_features_demo(duration: int = 30):
+    """Run demo showcasing all advanced features."""
+    print("🌐 Starting Advanced Features Demo")
+    print(f"Duration: {duration} seconds")
+    print("-" * 60)
+    
+    from core.platform import AnalyticsPlatform
+    from ingestion import WebSocketHandler
+    from analytics import MLProcessor, MLModelConfig, AdvancedAnalyticsEngine
+    from monitoring import DashboardAPI
+    import time
+    
+    platform = AnalyticsPlatform()
+    
+    try:
+        await platform.start()
+        print("✅ Platform started with all advanced components")
+        
+        # Demonstrate WebSocket
+        if platform.websocket_handler:
+            print("\n📡 WebSocket Handler:")
+            print(f"   Active connections: {platform.websocket_handler.get_metrics()['active_connections']}")
+            print(f"   Messages sent: {platform.websocket_handler.get_metrics()['total_messages_sent']}")
+        
+        # Demonstrate Kafka
+        if platform.kafka_consumer:
+            print("\n📨 Kafka Integration:")
+            kafka_metrics = platform.kafka_consumer.get_metrics()
+            print(f"   Messages consumed: {kafka_metrics['messages_consumed']}")
+            print(f"   Messages processed: {kafka_metrics['messages_processed']}")
+        
+        # Demonstrate ML Pipeline
+        if platform.ml_processor:
+            print("\n🤖 ML Processor:")
+            ml_metrics = platform.ml_processor.get_metrics()
+            print(f"   Total predictions: {ml_metrics['total_predictions']}")
+            print(f"   GPU predictions: {ml_metrics['gpu_predictions']}")
+            print(f"   CPU predictions: {ml_metrics['cpu_predictions']}")
+            print(f"   Avg processing time: {ml_metrics['avg_processing_time']:.3f}s")
+            
+            # Run sample ML prediction
+            sample_input = [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]]
+            prediction = await platform.ml_processor.predict("default_model", sample_input)
+            if prediction:
+                print(f"   Sample prediction: {prediction.predictions[0]:.3f}")
+        
+        # Demonstrate Advanced Analytics
+        if platform.advanced_analytics:
+            print("\n📊 Advanced Analytics:")
+            # Add some sample data points
+            current_time = time.time()
+            for i in range(20):
+                value = 50 + i * 2 + (i % 3) * 5
+                platform.advanced_analytics.add_metric_point("sample_metric", current_time - (20-i), value)
+            
+            # Generate forecast
+            forecast = platform.advanced_analytics.generate_forecast("sample_metric", steps=5)
+            if forecast:
+                print(f"   Forecast generated: {len(forecast.forecast_values)} steps")
+                print(f"   Next predicted value: {forecast.forecast_values[0]:.2f}")
+            
+            # Detect anomalies
+            anomaly = platform.advanced_analytics.detect_anomalies(
+                "sample_metric", current_time, 100.0
+            )
+            if anomaly:
+                print(f"   Anomaly detected: {anomaly.anomaly_type} (severity: {anomaly.severity})")
+        
+        # Demonstrate Dashboard
+        if platform.dashboard_api:
+            print("\n📈 Dashboard API:")
+            print(f"   Available at: http://localhost:8081")
+            print(f"   Health endpoint: http://localhost:8081/health")
+            print(f"   Metrics endpoint: http://localhost:8081/api/v1/metrics")
+            print(f"   WebSocket stream: ws://localhost:8081/ws/metrics")
+        
+        # Demonstrate Container Orchestration
+        if platform.kubernetes_orchestrator:
+            print("\n☸️  Kubernetes Orchestration:")
+            replicas = await platform.kubernetes_orchestrator.get_deployment_replicas()
+            print(f"   Current replicas: {replicas}")
+        
+        # Generate some events to process
+        print("\n📥 Generating sample events...")
+        for i in range(10):
+            from core.platform import AnalyticsEvent
+            event = AnalyticsEvent(
+                event_id=f"advanced_demo_{i}",
+                event_type="system_metrics",
+                data={"cpu": 50 + i, "memory": 60 + i, "timestamp": time.time()},
+                source="advanced_demo"
+            )
+            await platform.ingest_event(event)
+            await asyncio.sleep(0.1)
+        
+        # Wait for processing
+        print(f"\n⏳ Processing events for {duration} seconds...")
+        await asyncio.sleep(duration)
+        
+        # Show final stats
+        stats = await platform.get_platform_stats()
+        print("\n📊 Final Platform Stats:")
+        print(f"   Events processed: {stats['platform']['events_processed']}")
+        print(f"   Avg processing time: {stats['platform']['avg_processing_time']:.3f}s")
+        
+    finally:
+        await platform.stop()
+        print("\n✅ Advanced Features Demo Complete!")
+
+
 async def run_performance_test():
     """Run performance benchmarking."""
     print("⚡ Running Performance Tests")
@@ -117,19 +227,27 @@ def show_menu():
     print("   - Actor-based monitoring and alerting")
     print("   - Comprehensive performance metrics")
     print()
-    print("2. 🏗️ Core Platform Only")
+    print("2. 🌐 Advanced Features Demo (NEW!)")
+    print("   - WebSocket real-time streaming")
+    print("   - Kafka distributed messaging")
+    print("   - ML pipeline with GPU acceleration")
+    print("   - Dashboard API with live metrics")
+    print("   - Container orchestration (K8s/Docker)")
+    print("   - Advanced analytics (forecasting, anomaly detection)")
+    print()
+    print("3. 🏗️ Core Platform Only")
     print("   - Basic analytics platform functionality")
     print("   - Manual event ingestion testing")
     print()
-    print("3. ⚡ Performance Tests")
+    print("4. ⚡ Performance Tests")
     print("   - Benchmark different workload types")
     print("   - Measure throughput and latency")
     print()
-    print("4. 📚 Show Architecture Overview")
+    print("5. 📚 Show Architecture Overview")
     print("   - Detailed explanation of components")
     print("   - Concurrency pattern integration")
     print()
-    print("5. 🔧 Development Mode")
+    print("6. 🔧 Development Mode")
     print("   - Detailed logging and debugging")
     print("   - Component isolation testing")
     print()
@@ -149,8 +267,8 @@ def show_architecture():
     print("1. 📥 Ingestion Layer (AsyncIO)")
     print("   • REST API server with concurrent request handling")
     print("   • Rate limiting and circuit breakers")
-    print("   • WebSocket streams for real-time data")
-    print("   • Kafka consumer for distributed ingestion")
+    print("   • WebSocket streams for real-time data (NEW!)")
+    print("   • Kafka consumer for distributed ingestion (NEW!)")
     print()
 
     print("2. 🌊 Processing Layer (Reactive Streams)")
@@ -162,23 +280,28 @@ def show_architecture():
 
     print("3. 🧠 Analytics Layer (Multiprocessing)")
     print("   • CPU-intensive statistical analysis")
-    print("   • ML model inference and training")
-    print("   • Anomaly detection algorithms")
-    print("   • Predictive analytics")
+    print("   • ML model inference with GPU acceleration (NEW!)")
+    print("   • Advanced anomaly detection algorithms (NEW!)")
+    print("   • Time series forecasting (NEW!)")
+    print("   • Predictive analytics and trend analysis (NEW!)")
     print()
 
     print("4. 👁️ Monitoring Layer (Actor Model)")
     print("   • Fault-tolerant alerting system")
     print("   • Supervisor hierarchies for resilience")
     print("   • Real-time health monitoring")
-    print("   • Performance metrics collection")
+    print("   • Dashboard API with live metrics (NEW!)")
+    print("   • WebSocket streaming for real-time updates (NEW!)")
+    print("   • Historical metrics queries (NEW!)")
     print()
 
     print("5. 🎛️ Coordination Layer (Hybrid Patterns)")
     print("   • Adaptive workload routing")
     print("   • Distributed synchronization")
     print("   • Configuration-driven execution")
-    print("   • Service mesh coordination")
+    print("   • Kubernetes container orchestration (NEW!)")
+    print("   • Docker Swarm integration (NEW!)")
+    print("   • Auto-scaling based on metrics (NEW!)")
     print()
 
     print("🚀 CONCURRENCY PATTERNS INTEGRATION:")
@@ -210,6 +333,9 @@ async def main():
         if command == "demo":
             duration = int(sys.argv[2]) if len(sys.argv) > 2 else 30
             await run_full_demo(duration)
+        elif command == "advanced":
+            duration = int(sys.argv[2]) if len(sys.argv) > 2 else 30
+            await run_advanced_features_demo(duration)
         elif command == "platform":
             await run_platform_only()
         elif command == "perf":
@@ -225,7 +351,7 @@ async def main():
         while True:
             show_menu()
             try:
-                choice = input("Enter your choice (1-5): ").strip()
+                choice = input("Enter your choice (1-6): ").strip()
 
                 if choice == "1":
                     duration = input("Demo duration in seconds (default 30): ").strip()
@@ -234,26 +360,32 @@ async def main():
                     break
 
                 elif choice == "2":
-                    await run_platform_only()
+                    duration = input("Demo duration in seconds (default 30): ").strip()
+                    duration = int(duration) if duration.isdigit() else 30
+                    await run_advanced_features_demo(duration)
                     break
 
                 elif choice == "3":
-                    await run_performance_test()
+                    await run_platform_only()
                     break
 
                 elif choice == "4":
+                    await run_performance_test()
+                    break
+
+                elif choice == "5":
                     show_architecture()
                     input("\\nPress Enter to continue...")
                     continue
 
-                elif choice == "5":
+                elif choice == "6":
                     setup_logging("DEBUG")
                     print("🔧 Development mode enabled")
                     await run_full_demo(15)
                     break
 
                 else:
-                    print("❌ Invalid choice. Please select 1-5.")
+                    print("❌ Invalid choice. Please select 1-6.")
                     continue
 
             except KeyboardInterrupt:

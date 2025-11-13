@@ -12,6 +12,7 @@ Examples are organized by topic:
 - **concurrent_futures/** - Executor-based concurrency examples
 - **subprocess_examples/** - External process execution examples
 - **hybrid_concurrency/** - Advanced hybrid concurrency patterns
+- **langchain_examples/** - LangChain framework examples (LLMs, Agents, Chains, RAG)
 - **patterns/** - Common concurrency patterns
 
 ## Usage
@@ -78,6 +79,17 @@ python basic_threading.py
 - **Configuration-Driven**: Runtime switching, adaptive executors, YAML/JSON config
 - **Container-Aware**: Docker communication, Kubernetes integration, service discovery
 - **ML-Specific**: GPU/TPU concurrency, model inference pipelines, distributed training
+
+### LangChain Examples
+- **Core Concepts**: LLMs, Prompts, Output Parsers with production patterns
+- **Chains**: Sequential, Router, and Custom Chain implementations
+- **Agents**: ReAct, Plan-and-Execute, and Custom Agent patterns
+- **Memory**: Conversation Buffer, Summary, and Window Memory management
+- **Tools**: Custom Tools and Toolkits for agent integration
+- **Retrieval**: RAG pipelines, Vector Stores, Document Loaders
+- **LangGraph**: Complex workflow orchestration
+- **Evaluation**: Model evaluation and testing patterns
+- **Production**: Error handling, Monitoring, Caching for production deployment
 
 ### Pattern Examples
 - Producer-consumer

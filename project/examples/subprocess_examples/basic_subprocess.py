@@ -18,6 +18,33 @@ from typing import Optional
 class BasicSubprocessExample:
     """
     Basic examples of subprocess usage for external command execution.
+
+    When to Use:
+        - Executing external commands
+        - Running shell commands from Python
+        - Capturing command output
+        - Checking command exit codes
+        - Simple command execution
+
+    Real-World Examples:
+        - System administration: Run system commands
+        - Build scripts: Execute build tools
+        - DevOps: Run deployment commands
+        - Testing: Execute test commands
+        - Automation: Automate command execution
+
+    Gotchas:
+        - shell=True is security risk (use list args)
+        - Always validate user input
+        - Handle return codes properly
+        - Capture output to prevent blocking
+        - Use text=True for string output
+
+    Performance Notes:
+        - Process creation overhead
+        - Blocking until completion
+        - Use Popen for non-blocking
+        - Consider async subprocess for I/O
     """
 
     @staticmethod
@@ -157,6 +184,126 @@ class BasicSubprocessExample:
         print(f"   Working directory: {result.stdout.strip()}")
         print(f"   Requested: {temp_dir}")
 
+    def basic_subprocess_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Basic Subprocess - System Health Check Script.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a system health check script:
+        - Run multiple system commands to check health
+        - Capture output for analysis
+        - Problem: Need to execute commands reliably
+        
+        THE PROBLEM WITHOUT SUBPROCESS:
+        ================================
+        - Manual command execution → error-prone
+        - No output capture → can't analyze
+        - No error handling → script fails
+        - Inconsistent execution → unreliable
+        - System administration → manual work
+        
+        THE SOLUTION:
+        =============
+        Basic subprocess enables:
+        - Execute system commands → reliable
+        - Capture output → analyze results
+        - Handle errors → robust scripts
+        - Consistent execution → reliable
+        - Automation → efficient
+        
+        WHEN TO USE BASIC SUBPROCESS:
+        =============================
+        ✅ System administration scripts
+        ✅ Health check scripts
+        ✅ Build automation
+        ✅ Deployment scripts
+        ✅ Command execution automation
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: System Health Check Script")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - System health check script")
+        print("  - Run multiple system commands to check health")
+        print("  - Capture output for analysis")
+        print("  - Problem: Need to execute commands reliably")
+        print()
+        print("THE PROBLEM:")
+        print("  Without subprocess:")
+        print("    ❌ Manual command execution → error-prone")
+        print("    ❌ No output capture → can't analyze")
+        print("    ❌ No error handling → script fails")
+        print("    ❌ Inconsistent execution → unreliable")
+        print()
+        print("THE SOLUTION:")
+        print("  With basic subprocess:")
+        print("    ✅ Execute system commands → reliable")
+        print("    ✅ Capture output → analyze results")
+        print("    ✅ Handle errors → robust scripts")
+        print("    ✅ Consistent execution → reliable")
+        print()
+        print("=" * 70)
+        print()
+
+        # Health check commands
+        health_checks = [
+            ("System uptime", ["uptime"]),
+            ("Disk usage", ["df", "-h"]),
+            ("Memory info", ["free", "-h"] if sys.platform != "darwin" else ["vm_stat"]),
+        ]
+
+        print("Running system health checks...")
+        print()
+
+        results = {}
+        for check_name, command in health_checks:
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False
+                )
+                if result.returncode == 0:
+                    results[check_name] = {"status": "OK", "output": result.stdout.strip()}
+                    print(f"  ✅ {check_name}: OK")
+                else:
+                    results[check_name] = {"status": "ERROR", "output": result.stderr.strip()}
+                    print(f"  ❌ {check_name}: ERROR")
+            except subprocess.TimeoutExpired:
+                results[check_name] = {"status": "TIMEOUT", "output": ""}
+                print(f"  ⏱️  {check_name}: TIMEOUT")
+            except Exception as e:
+                results[check_name] = {"status": "EXCEPTION", "output": str(e)}
+                print(f"  ❌ {check_name}: EXCEPTION - {e}")
+
+        print()
+        print("Health check summary:")
+        for check_name, result in results.items():
+            print(f"  {check_name}: {result['status']}")
+        print()
+        print("  ✅ Basic subprocess enabled reliable command execution!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE BASIC SUBPROCESS:")
+        print("   ✅ System administration scripts")
+        print("   ✅ Health check scripts")
+        print("   ✅ Build automation")
+        print("   ✅ Deployment scripts")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Reliable command execution")
+        print("   - Output capture for analysis")
+        print("   - Error handling")
+        print("   - Automation")
+        print("=" * 70)
+        print()
+
 
 def main() -> None:
     """Run all basic subprocess examples."""
@@ -173,6 +320,12 @@ def main() -> None:
         example.text_vs_binary()
         example.environment_variables()
         example.working_directory()
+
+        # Real-world scenarios
+        print("\n" + "=" * 70)
+        print("RUNNING REAL-WORLD SCENARIOS")
+        print("=" * 70 + "\n")
+        example.basic_subprocess_real_world_example()
 
         print("\n" + "=" * 30)
         print("All basic subprocess examples completed successfully!")

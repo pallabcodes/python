@@ -17,11 +17,24 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
+
+# Import platform components
+try:
+    from ingestion import APIServer, WebSocketHandler, KafkaConsumerHandler, KafkaProducerHandler
+    from analytics import AnalyticsEngine, MLProcessor, MLModelConfig, AdvancedAnalyticsEngine
+    from monitoring import ActorSystem, DashboardAPI
+    from core.container_orchestration import KubernetesOrchestrator, DockerOrchestrator
+    HAS_PLATFORM_COMPONENTS = True
+except ImportError as e:
+    logger.warning(f"Some platform components not available: {e}")
+    HAS_PLATFORM_COMPONENTS = False
+
 # Import our concurrency patterns (with fallbacks)
 try:
     from advanced_hybrid_concurrency import (
         AdaptiveExecutor, ConcurrencyConfig, ReactiveStream,
-        ActorSystem, AlertActor, DistributedLock
+        ActorSystem as AdvancedActorSystem, AlertActor, DistributedLock
     )
     from hybrid_concurrency import AsyncioThreadingHybrid
     HAS_ADVANCED_PATTERNS = True
@@ -67,8 +80,6 @@ except ImportError:
         async def start(self): pass
         async def stop(self): pass
         async def run_cpu_task(self, func, *args): return func(*args)
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -117,9 +128,56 @@ class AnalyticsPlatform:
         self.processing_stream = ReactiveStream()
         self.analytics_stream = ReactiveStream()
 
+        # Ingestion layer components
+        if HAS_PLATFORM_COMPONENTS:
+            self.api_server = APIServer(host="0.0.0.0", port=self.config.ingestion_port)
+            self.websocket_handler = WebSocketHandler(max_connections=1000)
+            self.kafka_consumer = KafkaConsumerHandler(
+                bootstrap_servers=["localhost:9092"],
+                topics=["analytics_events"],
+                group_id="analytics_platform"
+            ) if self.config.enable_kafka else None
+            self.kafka_producer = KafkaProducerHandler(
+                bootstrap_servers=["localhost:9092"]
+            ) if self.config.enable_kafka else None
+        else:
+            self.api_server = None
+            self.websocket_handler = None
+            self.kafka_consumer = None
+            self.kafka_producer = None
+
+        # Analytics layer components
+        if HAS_PLATFORM_COMPONENTS:
+            self.analytics_engine = AnalyticsEngine(max_workers=4)
+            self.ml_processor = MLProcessor()
+            self.advanced_analytics = AdvancedAnalyticsEngine()
+        else:
+            self.analytics_engine = None
+            self.ml_processor = None
+            self.advanced_analytics = None
+
         # Actor system for monitoring
-        self.actor_system = ActorSystem()
+        if HAS_ADVANCED_PATTERNS:
+            self.actor_system = AdvancedActorSystem()
+        elif HAS_PLATFORM_COMPONENTS:
+            self.actor_system = ActorSystem()
+        else:
+            self.actor_system = ActorSystem()
         self.alert_actor = None
+
+        # Monitoring and dashboard
+        if HAS_PLATFORM_COMPONENTS:
+            self.dashboard_api = DashboardAPI(host="0.0.0.0", port=8081)
+        else:
+            self.dashboard_api = None
+
+        # Container orchestration
+        if HAS_PLATFORM_COMPONENTS:
+            self.kubernetes_orchestrator = KubernetesOrchestrator() if self.config.enable_orchestration else None
+            self.docker_orchestrator = DockerOrchestrator() if self.config.enable_orchestration else None
+        else:
+            self.kubernetes_orchestrator = None
+            self.docker_orchestrator = None
 
         # Distributed coordination
         self.distributed_lock = DistributedLock("analytics_platform")
@@ -144,6 +202,8 @@ class AnalyticsPlatform:
             ),
             ingestion_port=8080,
             enable_distributed=True,
+            enable_kafka=False,
+            enable_orchestration=False,
             alert_thresholds={
                 "error_rate": 0.05,
                 "latency_p95": 1.0,
@@ -162,6 +222,33 @@ class AnalyticsPlatform:
         await self.adaptive_executor.initialize()
         await self.hybrid_processor.start()
 
+        # Start ingestion layer components
+        if self.websocket_handler:
+            await self.websocket_handler.start()
+            logger.info("✅ WebSocket handler started")
+        
+        if self.kafka_consumer:
+            await self.kafka_consumer.start()
+            logger.info("✅ Kafka consumer started")
+        
+        if self.kafka_producer:
+            await self.kafka_producer.start()
+            logger.info("✅ Kafka producer started")
+
+        # Start analytics components
+        if self.analytics_engine:
+            await self.analytics_engine.start()
+            logger.info("✅ Analytics engine started")
+        
+        if self.ml_processor:
+            await self.ml_processor.start()
+            # Load default ML model
+            await self.ml_processor.load_model(
+                "default_model",
+                MLModelConfig(model_type="pytorch", device="auto")
+            )
+            logger.info("✅ ML processor started")
+
         # Setup reactive processing pipeline
         self._setup_processing_pipeline()
 
@@ -170,7 +257,30 @@ class AnalyticsPlatform:
             await self.actor_system.start()
             self.alert_actor = await self.actor_system.spawn(AlertActor, "analytics_alerts")
         else:
+            await self.actor_system.start()
             self.alert_actor = None
+
+        # Start dashboard API
+        if self.dashboard_api:
+            # Register components for metrics collection
+            self.dashboard_api.register_component("platform", self)
+            self.dashboard_api.register_component("ingestion", self.api_server)
+            self.dashboard_api.register_component("websocket", self.websocket_handler)
+            self.dashboard_api.register_component("kafka", self.kafka_consumer)
+            self.dashboard_api.register_component("analytics", self.analytics_engine)
+            self.dashboard_api.register_component("ml", self.ml_processor)
+            self.dashboard_api.register_component("monitoring", self.actor_system)
+            
+            dashboard_task = asyncio.create_task(self.dashboard_api.start())
+            logger.info("✅ Dashboard API started on port 8081")
+
+        # Start container orchestration
+        if self.kubernetes_orchestrator:
+            await self.kubernetes_orchestrator.start()
+            orchestrator_task = asyncio.create_task(
+                self.kubernetes_orchestrator.auto_scale_loop()
+            )
+            logger.info("✅ Kubernetes orchestrator started")
 
         # Start ingestion API
         ingestion_task = asyncio.create_task(self._start_ingestion_api())
@@ -183,6 +293,7 @@ class AnalyticsPlatform:
 
         logger.info("✅ Analytics Platform started successfully!")
         logger.info("🚀 Ready to process real-time analytics events")
+        logger.info("📊 Dashboard available at http://localhost:8081")
 
         # Wait for components (in real implementation, this would run indefinitely)
         await asyncio.sleep(1)
@@ -196,9 +307,36 @@ class AnalyticsPlatform:
 
         self.running = False
 
+        # Stop ingestion components
+        if self.websocket_handler:
+            await self.websocket_handler.stop()
+        
+        if self.kafka_consumer:
+            await self.kafka_consumer.stop()
+        
+        if self.kafka_producer:
+            await self.kafka_producer.stop()
+
+        # Stop analytics components
+        if self.analytics_engine:
+            await self.analytics_engine.stop()
+        
+        if self.ml_processor:
+            await self.ml_processor.stop()
+
+        # Stop dashboard
+        if self.dashboard_api:
+            await self.dashboard_api.stop()
+
+        # Stop orchestration
+        if self.kubernetes_orchestrator:
+            await self.kubernetes_orchestrator.stop()
+
         await self.adaptive_executor.cleanup()
         await self.hybrid_processor.stop()
         if HAS_ADVANCED_PATTERNS:
+            await self.actor_system.stop()
+        else:
             await self.actor_system.stop()
 
         self.stats["uptime_seconds"] = time.time() - self.start_time
@@ -443,6 +581,8 @@ class PlatformConfig:
     concurrency: ConcurrencyConfig
     ingestion_port: int = 8080
     enable_distributed: bool = False
+    enable_kafka: bool = False
+    enable_orchestration: bool = False
     alert_thresholds: Dict[str, float] = None
 
     def __post_init__(self):

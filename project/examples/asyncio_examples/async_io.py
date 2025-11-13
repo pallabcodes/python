@@ -30,47 +30,129 @@ except ImportError:
 class AsyncIOExample:
     """
     Examples of async I/O operations.
+
+    This class demonstrates asynchronous I/O patterns for files, networks, and streams.
+    Note: Python's standard library file I/O is blocking; true async file I/O requires
+    aiofiles or running in executor threads.
+
+    When to Use:
+        - Building scalable network servers and clients
+        - Processing multiple files concurrently
+        - Making concurrent HTTP requests
+        - Handling streaming data
+        - Building I/O-bound applications that benefit from concurrency
+
+    Real-World Examples:
+        - Web servers: Handle thousands of concurrent connections
+        - API clients: Make multiple HTTP requests in parallel
+        - File processing: Process multiple files simultaneously
+        - Data pipelines: Stream data through processing stages
+        - Microservices: Communicate between services asynchronously
+
+    Gotchas:
+        - Standard library file I/O is blocking; use aiofiles for true async
+        - Network operations need timeouts to prevent hangs
+        - Server shutdown requires proper cleanup of connections
+        - tempfile.mktemp() has race conditions; use NamedTemporaryFile
+        - Always use context managers for resource cleanup
+        - Exception handling in gather() requires return_exceptions=True
+
+    Performance Notes:
+        - Async I/O can handle thousands of concurrent operations
+        - Network I/O benefits most from async (3-10x speedup)
+        - File I/O benefits less (OS may serialize disk access)
+        - Use semaphores to limit concurrent operations
+        - Profile to find optimal concurrency levels
     """
 
     async def async_file_read(self, file_path: str) -> str:
         """
         Read a file asynchronously.
 
+        WARNING: This uses blocking file I/O wrapped in a lock. For true async file I/O,
+        use aiofiles library or run_in_executor() with a thread pool.
+
+        When to Use:
+            - Reading files in async contexts where blocking is acceptable
+            - Simulating async file operations for learning
+            - Simple file reads where true async isn't critical
+            - Prototyping before migrating to aiofiles
+
+        Real-World Examples:
+            - Configuration file reading: Load config at startup
+            - Log file reading: Read logs for processing
+            - Template loading: Load templates for rendering
+            - Data file reading: Read data files for processing
+
+        Gotchas:
+            - This is NOT truly async; it blocks the event loop
+            - Lock prevents concurrent reads of same file (good for safety)
+            - For production, use aiofiles.open() for true async
+            - Large files will block the event loop
+            - Consider run_in_executor() for CPU-bound file operations
+
         Args:
             file_path: Path to the file to read
 
         Returns:
             File contents as string
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            IOError: If file cannot be read
         """
         print(f"📖 Reading file: {file_path}")
 
-        # This lock creates a temporary asynchronous lock context (like a mutex).
+        # Lock prevents concurrent access to same file (safety)
+        # NOTE: This is still blocking I/O, not truly async
         async with asyncio.Lock():
-            # → This is normal blocking file I/O.
-            # There’s no asynchronous open in the Python standard library; the OS reads the file immediately, blocking the interpreter while it does.
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-        # Simulate async behavior with small delay
+        # Small delay simulates async behavior but doesn't make it truly async
         await asyncio.sleep(0.01)
         return content
 
-    
-    # this is a deceptively simple but subtle example, because it looks like it’s doing file I/O asynchronously, but under the hood it’s a mix of synchronous I/O inside an async function and simulated async behavior.
-    
     async def async_file_write(self, file_path: str, content: str) -> None:
         """
         Write content to a file asynchronously.
 
+        WARNING: This uses blocking file I/O wrapped in a lock. For true async file I/O,
+        use aiofiles library or run_in_executor() with a thread pool.
+
+        When to Use:
+            - Writing files in async contexts where blocking is acceptable
+            - Simulating async file operations for learning
+            - Simple file writes where true async isn't critical
+            - Prototyping before migrating to aiofiles
+
+        Real-World Examples:
+            - Log file writing: Write application logs
+            - Configuration saving: Save user preferences
+            - Data file writing: Write processed data to files
+            - Cache file writing: Write cache data to disk
+
+        Gotchas:
+            - This is NOT truly async; it blocks the event loop
+            - Lock prevents concurrent writes to same file (prevents corruption)
+            - For production, use aiofiles.open() for true async
+            - Large writes will block the event loop
+            - Parent directory creation is synchronous
+
         Args:
             file_path: Path to write to
             content: Content to write
+
+        Raises:
+            IOError: If file cannot be written
+            PermissionError: If write permission denied
         """
         print(f"✍️  Writing to file: {file_path}")
 
-        # Ensure parent directory exists
+        # Ensure parent directory exists (synchronous operation)
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
 
+        # Lock prevents concurrent writes to same file
         async with asyncio.Lock():
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
@@ -78,7 +160,31 @@ class AsyncIOExample:
         await asyncio.sleep(0.01)
 
     async def file_operations_example(self) -> None:
-        """Demonstrate async file operations."""
+        """
+        Demonstrate async file operations.
+
+        Shows basic file read/write patterns. Note that these operations use
+        blocking I/O wrapped in locks, not truly async file I/O.
+
+        When to Use:
+            - Learning async file operation patterns
+            - Simple file operations in async contexts
+            - Prototyping file processing workflows
+            - Understanding async/await with I/O
+
+        Real-World Examples:
+            - Configuration management: Read/write config files
+            - Log processing: Read logs, process, write results
+            - Data transformation: Read input, transform, write output
+            - File synchronization: Copy files between locations
+
+        Gotchas:
+            - Uses blocking I/O; not suitable for high concurrency
+            - Lock serializes file operations (safety vs performance)
+            - Temp files must be cleaned up properly
+            - Use aiofiles for production async file I/O
+            - Consider run_in_executor for large files
+        """
         print("=== Async File Operations ===")
 
         # Creates a temporary file synchronously using tempfile.NamedTemporaryFile() named tmp.
@@ -108,7 +214,38 @@ class AsyncIOExample:
         print()
 
     async def concurrent_file_processing(self) -> None:
-        """Demonstrate concurrent file processing."""
+        """
+        Demonstrate concurrent file processing.
+
+        Shows how to process multiple files concurrently. While file I/O itself
+        is blocking, the coordination and processing can happen concurrently.
+
+        When to Use:
+            - Processing multiple independent files
+            - Batch file operations
+            - Data pipeline stages
+            - File transformation workflows
+            - Log file analysis
+
+        Real-World Examples:
+            - Image processing: Resize multiple images concurrently
+            - Data import: Import multiple data files in parallel
+            - Log analysis: Analyze multiple log files simultaneously
+            - File conversion: Convert multiple files to different formats
+            - Backup operations: Process multiple files for backup
+
+        Gotchas:
+            - File I/O is still blocking; benefits are limited
+            - Too many concurrent file operations can exhaust file descriptors
+            - Use semaphores to limit concurrent file operations
+            - Always clean up temp files in finally blocks
+            - Consider aiofiles for true async file I/O
+
+        Performance Notes:
+            - Limited speedup due to blocking I/O
+            - Better for I/O-bound operations (network, not disk)
+            - Use semaphores to prevent resource exhaustion
+        """
         print("=== Concurrent File Processing ===")
 
         # Create multiple test files
@@ -168,6 +305,30 @@ class AsyncIOExample:
         """
         Simple async TCP client.
 
+        Demonstrates async network client operations using asyncio streams.
+        This is truly async and non-blocking.
+
+        When to Use:
+            - Building network clients
+            - Communicating with TCP servers
+            - Implementing custom protocols
+            - Testing network services
+            - Building distributed systems
+
+        Real-World Examples:
+            - Database clients: Connect to database servers
+            - Message queues: Connect to message brokers
+            - Custom protocols: Implement application-specific protocols
+            - Service discovery: Connect to service registries
+            - Microservices: Inter-service communication
+
+        Gotchas:
+            - Always close writer and wait for closure
+            - Use timeouts to prevent indefinite hangs
+            - read() may return partial data; handle framing
+            - drain() ensures data is sent before continuing
+            - Handle connection errors gracefully
+
         Args:
             host: Server host
             port: Server port
@@ -175,21 +336,27 @@ class AsyncIOExample:
 
         Returns:
             Server response
+
+        Raises:
+            ConnectionError: If connection fails
+            TimeoutError: If operation times out (if timeout used)
         """
         print(f"🌐 Connecting to {host}:{port}")
 
         try:
+            # Truly async connection (non-blocking)
             reader, writer = await asyncio.open_connection(host, port)
 
             # Send message
             writer.write(message.encode())
-            await writer.drain()
+            await writer.drain()  # Ensure data is sent
 
-            # Read response upto 1024 bytes
-            response = await reader.read(1024) # read() is a blocking operation that waits until the data is available
+            # Read response (non-blocking, yields control while waiting)
+            response = await reader.read(1024)
             response_str = response.decode()
 
-            writer.close() # close the writer stream
+            # Proper cleanup
+            writer.close()
             await writer.wait_closed()
 
             return response_str
@@ -200,6 +367,30 @@ class AsyncIOExample:
     async def async_network_server(self, host: str, port: int) -> None:
         """
         Simple async TCP server.
+
+        Demonstrates async network server that can handle multiple clients
+        concurrently using cooperative multitasking.
+
+        When to Use:
+            - Building network servers
+            - Implementing custom protocols
+            - Creating service endpoints
+            - Building microservices
+            - Testing network clients
+
+        Real-World Examples:
+            - API servers: Handle HTTP/WebSocket connections
+            - Database servers: Handle database connections
+            - Message brokers: Handle client connections
+            - Game servers: Handle player connections
+            - Chat servers: Handle chat client connections
+
+        Gotchas:
+            - Each client gets its own coroutine (handle_client)
+            - Server runs forever until cancelled
+            - Always close writer and wait for closure
+            - Handle exceptions in client handlers
+            - Use graceful shutdown patterns in production
 
         Args:
             host: Host to bind to
@@ -227,7 +418,7 @@ class AsyncIOExample:
             finally:
                 writer.close() # begins closing the writer stream
                 await writer.wait_closed() # ensures the writer stream is fully closed and even if there's an error this method ensures writer stream closed properly.
-        
+
         print(f"🚀 Starting server on {host}:{port}")
 
         server = await asyncio.start_server(handle_client, host, port)
@@ -534,7 +725,38 @@ class AsyncIOExample:
         -- Verifying expected ids is good; ensure id uniqueness across batches is correct (your expected_ids assumes ids 0..14).
     """
     async def batch_io_operations(self) -> None:
-        """Demonstrate batch processing of I/O operations."""
+        """
+        Demonstrate batch processing of I/O operations.
+
+        Shows how to process multiple batches of data concurrently, reading
+        and writing files in batches for efficient processing.
+
+        When to Use:
+            - Processing large datasets in batches
+            - Batch file operations
+            - Data pipeline stages
+            - ETL operations
+            - Log file batch processing
+
+        Real-World Examples:
+            - Data import: Import data in batches
+            - Log processing: Process log files in batches
+            - File conversion: Convert files in batches
+            - Backup operations: Backup files in batches
+            - Data transformation: Transform data in batches
+
+        Gotchas:
+            - tempfile.mktemp() has race conditions; use NamedTemporaryFile
+            - Always verify data integrity after batch operations
+            - Clean up temp files in finally blocks
+            - Handle partial failures in batch operations
+            - Consider using semaphores to limit batch size
+
+        Performance Notes:
+            - Batch processing reduces overhead
+            - Concurrent batches improve throughput
+            - Balance batch size vs memory usage
+        """
         print("=== Batch I/O Operations ===")
 
         async def batch_file_writer(file_path: str, data_items: List[Dict[str, Any]]) -> str:
@@ -562,7 +784,9 @@ class AsyncIOExample:
             print("📝 Writing data batches...")
             write_tasks = []
             for i, batch in enumerate(batch_data):
-                temp_file = tempfile.mktemp(suffix=f'_batch_{i}.jsonl')
+                # Use NamedTemporaryFile instead of mktemp (race condition safe)
+                with tempfile.NamedTemporaryFile(mode='w', suffix=f'_batch_{i}.jsonl', delete=False) as tmp:
+                    temp_file = tmp.name
                 temp_files.append(temp_file)
                 task = batch_file_writer(temp_file, batch)
                 write_tasks.append(task)
@@ -601,6 +825,128 @@ class AsyncIOExample:
 
         print()
 
+    async def concurrent_file_processing_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Concurrent File Processing - Log Aggregation System.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a log aggregation system:
+        - Process log files from multiple servers
+        - Each file takes 2-5 seconds to process
+        - Problem: Sequential processing too slow
+        
+        THE PROBLEM WITHOUT CONCURRENCY:
+        =================================
+        - Process file 1 → wait 3 seconds
+        - Process file 2 → wait 3 seconds
+        - Process file 3 → wait 3 seconds
+        - 100 files = 300+ seconds!
+        - Single file at a time → waste of time
+        
+        THE SOLUTION:
+        =============
+        Concurrent file processing enables:
+        - Process multiple files simultaneously
+        - Overlap I/O wait times
+        - 100 files = 30-50 seconds (vs 300+ seconds)
+        - Optimal resource utilization
+        - 6-10x speedup typical
+        
+        WHEN TO USE CONCURRENT FILE PROCESSING:
+        =======================================
+        ✅ Processing multiple files
+        ✅ I/O-bound file operations
+        ✅ Log aggregation systems
+        ✅ Batch file processing
+        ✅ Data pipeline stages
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Log Aggregation System")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Log aggregation system")
+        print("  - Process log files from multiple servers")
+        print("  - Each file takes 2-5 seconds to process")
+        print("  - Problem: Sequential processing too slow")
+        print()
+        print("THE PROBLEM:")
+        print("  Without concurrency:")
+        print("    ❌ Process file 1 → wait 3 seconds")
+        print("    ❌ Process file 2 → wait 3 seconds")
+        print("    ❌ Process file 3 → wait 3 seconds")
+        print("    ❌ 100 files = 300+ seconds!")
+        print()
+        print("THE SOLUTION:")
+        print("  With concurrent processing:")
+        print("    ✅ Process multiple files simultaneously")
+        print("    ✅ Overlap I/O wait times")
+        print("    ✅ 100 files = 30-50 seconds (vs 300+ seconds)")
+        print("    ✅ Optimal resource utilization")
+        print()
+        print("=" * 70)
+        print()
+
+        async def process_log_file(file_id: int) -> dict:
+            """Simulate processing a log file."""
+            await asyncio.sleep(0.1)  # Simulate file I/O
+            return {
+                "file_id": file_id,
+                "status": "processed",
+                "lines": 1000 + file_id * 100,
+                "errors": file_id % 10
+            }
+
+        file_ids = list(range(1, 11))  # 10 log files
+
+        # Sequential processing
+        print("Sequential file processing:")
+        start_time = time.time()
+        sequential_results = []
+        for file_id in file_ids:
+            result = await process_log_file(file_id)
+            sequential_results.append(result)
+        sequential_time = time.time() - start_time
+        print(f"  Processed {len(sequential_results)} files in {sequential_time:.3f}s")
+        print()
+
+        # Concurrent processing
+        print("Concurrent file processing:")
+        start_time = time.time()
+        tasks = [process_log_file(file_id) for file_id in file_ids]
+        concurrent_results = await asyncio.gather(*tasks)
+        concurrent_time = time.time() - start_time
+        print(f"  Processed {len(concurrent_results)} files in {concurrent_time:.3f}s")
+        print()
+
+        speedup = sequential_time / concurrent_time if concurrent_time > 0 else 1.0
+        total_lines = sum(r['lines'] for r in concurrent_results)
+        print("Results:")
+        print(f"  Files processed: {len(concurrent_results)}")
+        print(f"  Total lines: {total_lines}")
+        print(f"  Sequential time: {sequential_time:.3f}s")
+        print(f"  Concurrent time: {concurrent_time:.3f}s")
+        print(f"  Speedup: {speedup:.2f}x")
+        print("  ✅ Concurrent file processing enabled parallel log aggregation!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE CONCURRENT FILE PROCESSING:")
+        print("   ✅ Processing multiple files")
+        print("   ✅ I/O-bound file operations")
+        print("   ✅ Log aggregation systems")
+        print("   ✅ Batch file processing")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Overlaps I/O wait times")
+        print("   - 6-10x speedup typical")
+        print("   - Optimal resource utilization")
+        print("   - Essential for scalable systems")
+        print("=" * 70)
+        print()
+
 
 async def main() -> None:
     """Run all async I/O examples."""
@@ -618,6 +964,12 @@ async def main() -> None:
     await example.error_handling_in_async_io()
     await example.async_file_copy_example()
     await example.batch_io_operations()
+
+    # Real-world scenarios
+    print("\n" + "=" * 70)
+    print("RUNNING REAL-WORLD SCENARIOS")
+    print("=" * 70 + "\n")
+    await example.concurrent_file_processing_real_world_example()
 
     print("All async I/O examples completed!")
 

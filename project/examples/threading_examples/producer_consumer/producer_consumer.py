@@ -42,12 +42,41 @@ DONE = ShutdownSignal()
 
 
 class ProducerConsumerQueue:
-    """Thread-safe producer-consumer queue with graceful shutdown.
+    """
+    Thread-safe producer-consumer queue with graceful shutdown.
 
     This class implements the classic producer-consumer pattern using
     Python's queue.Queue. It supports multiple producers and consumers,
     graceful shutdown via DONE sentinels, and optional bounded queues
     for backpressure control.
+
+    When to Use:
+        - Decoupling producers and consumers
+        - Implementing job queues
+        - Handling variable production/consumption rates
+        - Building event-driven systems
+        - Managing resource consumption
+
+    Real-World Examples:
+        - Job queues: Producers submit jobs, workers consume
+        - Log aggregation: Services produce logs, aggregator consumes
+        - Event processing: Event sources produce, processors consume
+        - Message queues: Publishers produce, subscribers consume
+        - Task queues: Task generators produce, executors consume
+
+    Gotchas:
+        - DONE sentinels must be sent (one per consumer)
+        - Queue.put() blocks when full (bounded queues)
+        - Queue.get() blocks when empty
+        - task_done() must be called for each get()
+        - Shutdown must wait for producers before sending DONE
+        - Timeout handling prevents indefinite blocking
+
+    Performance Notes:
+        - Bounded queues prevent memory exhaustion
+        - Backpressure slows producers when consumers lag
+        - Optimal producer/consumer ratio depends on workload
+        - Queue size affects latency vs memory tradeoff
 
     Features:
     - Multiple producer and consumer threads
@@ -198,6 +227,15 @@ class ProducerConsumerQueue:
         producer_timeout = timeout / 2 if timeout else None
         for producer in self._producers:
             producer.join(timeout=producer_timeout)
+            if producer.is_alive():
+                self._logger.warning(
+                    f"Producer '{producer.name}' did not shutdown within timeout",
+                    extra={
+                        "queue_name": self._name,
+                        "producer_name": producer.name,
+                        "timeout": producer_timeout
+                    }
+                )
 
         # Send DONE sentinels to consumers (one per consumer)
         for _ in self._consumers:
@@ -213,6 +251,15 @@ class ProducerConsumerQueue:
         consumer_timeout = timeout / 2 if timeout else None
         for consumer in self._consumers:
             consumer.join(timeout=consumer_timeout)
+            if consumer.is_alive():
+                self._logger.warning(
+                    f"Consumer '{consumer.name}' did not shutdown within timeout",
+                    extra={
+                        "queue_name": self._name,
+                        "consumer_name": consumer.name,
+                        "timeout": consumer_timeout
+                    }
+                )
 
         self._logger.info(
             f"ProducerConsumerQueue '{self._name}' shutdown complete",
@@ -237,6 +284,8 @@ class ProducerConsumerQueue:
                 if remaining <= 0:
                     return False
                 producer.join(timeout=remaining)
+                if producer.is_alive():
+                    return False  # Producer didn't complete within timeout
             else:
                 producer.join()
 
@@ -246,6 +295,8 @@ class ProducerConsumerQueue:
                 if remaining <= 0:
                     return False
                 consumer.join(timeout=remaining)
+                if consumer.is_alive():
+                    return False  # Consumer didn't complete within timeout
             else:
                 consumer.join()
 
@@ -270,7 +321,33 @@ class ProducerConsumerQueue:
 
 
 class ProducerThread(threading.Thread):
-    """Producer thread that generates and queues items."""
+    """
+    Producer thread that generates and queues items.
+
+    When to Use:
+        - Generating items for consumers
+        - Producing data at variable rates
+        - Implementing producer side of pattern
+        - Creating work items for workers
+
+    Real-World Examples:
+        - Log producers: Generate log entries
+        - Event producers: Generate events
+        - Task producers: Generate tasks
+        - Data producers: Generate data items
+
+    Gotchas:
+        - Must check shutdown_event periodically
+        - Queue.put() blocks when full
+        - Handle Full exceptions for bounded queues
+        - Producer function returning None signals completion
+        - Interval controls production rate
+
+    Performance Notes:
+        - Production rate controlled by interval
+        - Queue blocking provides backpressure
+        - Optimal interval depends on workload
+    """
 
     def __init__(
         self,
@@ -338,7 +415,34 @@ class ProducerThread(threading.Thread):
 
 
 class ConsumerThread(threading.Thread):
-    """Consumer thread that processes queued items."""
+    """
+    Consumer thread that processes queued items.
+
+    When to Use:
+        - Processing items from queue
+        - Consuming work items
+        - Implementing consumer side of pattern
+        - Processing data at variable rates
+
+    Real-World Examples:
+        - Log consumers: Process log entries
+        - Event consumers: Process events
+        - Task consumers: Process tasks
+        - Data consumers: Process data items
+
+    Gotchas:
+        - Must check for DONE sentinel
+        - Queue.get() blocks when empty
+        - task_done() must be called after processing
+        - Handle Empty exceptions
+        - Consumer function errors stop consumer
+
+    Performance Notes:
+        - Processing rate depends on consumer function
+        - Queue blocking provides backpressure
+        - Multiple consumers improve throughput
+        - Balance consumer count vs overhead
+    """
 
     def __init__(
         self,
@@ -401,10 +505,176 @@ class ConsumerThread(threading.Thread):
                 }
             )
 
+    def producer_consumer_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Producer-Consumer Queue - Log Processing System.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a log processing system:
+        - Multiple services produce log entries
+        - Workers process and analyze logs
+        - Problem: Decouple log production from processing
+        
+        THE PROBLEM WITHOUT QUEUE:
+        ===========================
+        - Producers wait for consumers → blocking
+        - Tight coupling → inflexible
+        - No buffering → lost logs
+        - Rate mismatch → inefficient
+        - System fragile → poor scalability
+        
+        THE SOLUTION:
+        =============
+        Producer-Consumer Queue enables:
+        - Decouple producers from consumers
+        - Buffer logs in queue → handle rate mismatch
+        - Multiple workers → parallel processing
+        - Backpressure → prevent overload
+        - Scalable architecture → production-ready
+        
+        WHEN TO USE PRODUCER-CONSUMER QUEUE:
+        ====================================
+        ✅ Log processing systems
+        ✅ Decoupling producers/consumers
+        ✅ Handling variable rates
+        ✅ Event-driven systems
+        ✅ Task processing pipelines
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Log Processing System")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Log processing system")
+        print("  - Multiple services produce log entries")
+        print("  - Workers process and analyze logs")
+        print("  - Problem: Decouple log production from processing")
+        print()
+        print("THE PROBLEM:")
+        print("  Without queue:")
+        print("    ❌ Producers wait for consumers → blocking")
+        print("    ❌ Tight coupling → inflexible")
+        print("    ❌ No buffering → lost logs")
+        print("    ❌ Rate mismatch → inefficient")
+        print()
+        print("THE SOLUTION:")
+        print("  With producer-consumer queue:")
+        print("    ✅ Decouple producers from consumers")
+        print("    ✅ Buffer logs in queue → handle rate mismatch")
+        print("    ✅ Multiple workers → parallel processing")
+        print("    ✅ Backpressure → prevent overload")
+        print()
+        print("=" * 70)
+        print()
+
+        queue = ProducerConsumerQueue(maxsize=10, name="LogProcessingQueue")
+
+        log_count = {"value": 0}
+        log_lock = threading.Lock()
+
+        def log_producer_func() -> None:
+            """Simulate a service producing logs."""
+            service_id = 1
+            num_logs = 5
+            for i in range(num_logs):
+                if queue._shutdown_event.is_set():
+                    break
+                log_entry = {
+                    "service_id": service_id,
+                    "log_id": i+1,
+                    "message": f"Log entry {i+1} from service {service_id}",
+                    "timestamp": time.time()
+                }
+                try:
+                    queue._queue.put(log_entry, timeout=1.0)
+                    print(f"  Service {service_id}: Produced log {i+1}")
+                except:
+                    break
+                time.sleep(0.05)
+
+        def log_consumer_func(log_entry: Any) -> None:
+            """Simulate a worker processing logs."""
+            if log_entry is DONE:
+                return
+            
+            # Process log
+            time.sleep(0.1)  # Simulate processing
+            with log_lock:
+                log_count["value"] += 1
+            print(f"  Worker: Processed log from service {log_entry['service_id']}")
+
+        print("Starting log processing system...")
+        print("  - 2 services producing logs")
+        print("  - 3 workers processing logs")
+        print()
+
+        # Add producers
+        queue.add_producer(log_producer_func, name="service_1")
+        queue.add_producer(log_producer_func, name="service_2")
+
+        # Add consumers
+        for i in range(3):
+            queue.add_consumer(log_consumer_func, name=f"worker_{i+1}")
+
+        # Start queue
+        queue.start()
+
+        # Wait a bit for processing
+        time.sleep(2.0)
+
+        # Shutdown queue
+        queue.shutdown(timeout=5.0)
+
+        print()
+        print("  ✅ Producer-Consumer queue enabled decoupled log processing!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE PRODUCER-CONSUMER QUEUE:")
+        print("   ✅ Log processing systems")
+        print("   ✅ Decoupling producers/consumers")
+        print("   ✅ Handling variable rates")
+        print("   ✅ Event-driven systems")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Decouples producers from consumers")
+        print("   - Handles rate mismatches")
+        print("   - Enables parallel processing")
+        print("   - Scalable architecture")
+        print("=" * 70)
+        print()
+
 
 # Context manager support
 class ProducerConsumerContext:
-    """Context manager for ProducerConsumerQueue."""
+    """
+    Context manager for ProducerConsumerQueue.
+
+    When to Use:
+        - Automatic queue lifecycle management
+        - Ensuring proper shutdown
+        - Resource cleanup
+        - Simplifying queue usage
+
+    Real-World Examples:
+        - With statements: Automatic cleanup
+        - Resource management: Ensure shutdown
+        - Testing: Clean up test queues
+        - Temporary queues: Auto-cleanup
+
+    Gotchas:
+        - Automatically starts queue on enter
+        - Automatically shuts down on exit
+        - Shutdown timeout is fixed (10s)
+        - Exceptions trigger shutdown
+
+    Performance Notes:
+        - Context manager overhead is minimal
+        - Ensures proper cleanup
+        - Prevents resource leaks
+    """
 
     def __init__(self, queue: ProducerConsumerQueue):
         self._queue = queue

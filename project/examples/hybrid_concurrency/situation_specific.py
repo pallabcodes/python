@@ -78,6 +78,30 @@ class HighThroughputProcessor:
     - Batch processing to reduce overhead
     - Minimal synchronization overhead
     - Focus on total operations per second
+
+    When to Use:
+        - Maximum throughput required
+        - Batch processing workloads
+        - High-volume task processing
+        - Throughput over latency
+
+    Real-World Examples:
+        - Batch processing: Process large batches
+        - Data ingestion: High-volume data processing
+        - Log processing: Process many log entries
+        - ETL pipelines: High-throughput ETL
+
+    Gotchas:
+        - Higher latency per task
+        - Memory usage with large batches
+        - Resource exhaustion risk
+        - Less responsive to individual tasks
+
+    Performance Notes:
+        - Optimized for total throughput
+        - Batch processing reduces overhead
+        - Large pools improve parallelism
+        - Balance throughput vs resource usage
     """
 
     def __init__(self,
@@ -232,6 +256,118 @@ class HighThroughputProcessor:
             "success_rate": len(successful_tasks) / len(self._metrics)
         }
 
+    async def high_throughput_real_world_example(self) -> None:
+        """
+        Real-World Scenario: High-Throughput Processor - Batch Data Processing.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a batch data processing system:
+        - Process millions of records nightly
+        - Throughput is critical (process as many as possible)
+        - Individual task latency less important
+        - Problem: Need maximum throughput
+        
+        THE PROBLEM WITHOUT HIGH-THROUGHPUT OPTIMIZATION:
+        =================================================
+        - Small pools → low parallelism → slow
+        - No batching → high overhead → inefficient
+        - Sequential processing → very slow
+        - System underutilized → wasted resources
+        
+        THE SOLUTION:
+        =============
+        High-Throughput Processor enables:
+        - Large thread/process pools → maximum parallelism
+        - Batch processing → reduces overhead
+        - Optimized for total throughput → processes more
+        - Resource utilization → efficient
+        - Optimal for batch workloads
+        
+        WHEN TO USE HIGH-THROUGHPUT PROCESSOR:
+        ======================================
+        ✅ Batch processing workloads
+        ✅ Maximum throughput required
+        ✅ High-volume task processing
+        ✅ Throughput over latency
+        ✅ ETL pipelines
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Batch Data Processing System")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Batch data processing system")
+        print("  - Process millions of records nightly")
+        print("  - Throughput is critical (process as many as possible)")
+        print("  - Individual task latency less important")
+        print()
+        print("THE PROBLEM:")
+        print("  Without high-throughput optimization:")
+        print("    ❌ Small pools → low parallelism → slow")
+        print("    ❌ No batching → high overhead → inefficient")
+        print("    ❌ Sequential processing → very slow")
+        print("    ❌ System underutilized → wasted resources")
+        print()
+        print("THE SOLUTION:")
+        print("  With High-Throughput Processor:")
+        print("    ✅ Large thread/process pools → maximum parallelism")
+        print("    ✅ Batch processing → reduces overhead")
+        print("    ✅ Optimized for total throughput → processes more")
+        print("    ✅ Resource utilization → efficient")
+        print()
+        print("=" * 70)
+        print()
+
+        def process_record(record_id: int) -> dict:
+            """Process a single record."""
+            # Simulate processing
+            result = 0
+            for i in range(10000):
+                result += hash(f"record_{record_id}_{i}") % 1000
+            return {"record_id": record_id, "processed": True, "result": result}
+
+        # Generate batch of records
+        batch_tasks = [
+            (process_record, (i,), {})
+            for i in range(50)
+        ]
+
+        print(f"Processing batch of {len(batch_tasks)} records...")
+        print(f"  - Thread pool: {self.max_threads} workers")
+        print(f"  - Process pool: {self.max_processes} workers")
+        print(f"  - Batch size: {self.batch_size}")
+        print()
+
+        start_time = time.time()
+        results = await self.process_batch(batch_tasks)
+        elapsed = time.time() - start_time
+
+        stats = self.get_throughput_stats()
+        print("Results:")
+        print(f"  Records processed: {len(results)}")
+        print(f"  Total time: {elapsed:.3f}s")
+        print(f"  Throughput: {stats['tasks_per_second']:.1f} tasks/second")
+        print(f"  Success rate: {stats['success_rate']:.1%}")
+        print("  ✅ High-Throughput Processor maximized batch processing speed!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE HIGH-THROUGHPUT PROCESSOR:")
+        print("   ✅ Batch processing workloads")
+        print("   ✅ Maximum throughput required")
+        print("   ✅ High-volume task processing")
+        print("   ✅ Throughput over latency")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Maximum parallelism")
+        print("   - Batch processing reduces overhead")
+        print("   - Optimal resource utilization")
+        print("   - Processes more tasks per second")
+        print("=" * 70)
+        print()
+
 
 class LowLatencyProcessor:
     """
@@ -304,9 +440,11 @@ class LowLatencyProcessor:
         self._running = False
         self._shutdown_event.set()
 
-        # Wait for workers
+        # Wait for workers with timeout handling
         for worker in self._workers:
             worker.join(timeout=5.0)
+            if worker.is_alive():
+                logger.warning(f"Worker {worker.name} did not shutdown within timeout, may still be running")
 
         if self._executor:
             self._executor.shutdown(wait=True)

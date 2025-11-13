@@ -11,6 +11,7 @@ This module covers:
 """
 
 import subprocess
+import sys
 import time
 import signal
 import os
@@ -21,6 +22,33 @@ from typing import Optional, Tuple
 class AdvancedSubprocessExample:
     """
     Advanced examples using subprocess.Popen() for fine-grained process control.
+
+    When to Use:
+        - Non-blocking process execution
+        - Process lifecycle management
+        - Signal handling
+        - Timeout management
+        - Advanced I/O control
+
+    Real-World Examples:
+        - Long-running processes: Manage lifecycle
+        - Process monitoring: Monitor process state
+        - Signal handling: Handle termination signals
+        - Timeout management: Kill hung processes
+        - Interactive processes: Handle I/O interactively
+
+    Gotchas:
+        - Must call wait() or communicate()
+        - Zombie processes if not waited
+        - Signal handling platform-specific
+        - Process groups for cleanup
+        - Resource cleanup required
+
+    Performance Notes:
+        - Non-blocking execution
+        - Process overhead significant
+        - Use process pools for many processes
+        - Balance timeout vs responsiveness
     """
 
     @staticmethod
@@ -77,7 +105,8 @@ class AdvancedSubprocessExample:
         except subprocess.TimeoutExpired:
             print("   Process timed out after 2 seconds!")
             process.kill()  # Terminate the process
-            print("   Process killed")
+            process.wait()  # Wait for cleanup to prevent zombie process
+            print("   Process killed and cleaned up")
 
     @staticmethod
     def non_blocking_io() -> None:
@@ -149,7 +178,8 @@ print("Child process finished")
             print(f"   Process terminated with code: {process.returncode}")
         except subprocess.TimeoutExpired:
             process.kill()
-            print("   Process force killed")
+            process.wait()  # Wait for cleanup to prevent zombie process
+            print("   Process force killed and cleaned up")
 
     @staticmethod
     def signal_handling() -> None:
@@ -193,6 +223,7 @@ print("\\nChild: Completed normally")
         except subprocess.TimeoutExpired:
             print("   Process didn't terminate gracefully, killing...")
             process.kill()
+            process.wait()  # Wait for cleanup to prevent zombie process
 
     @staticmethod
     def resource_management() -> None:
@@ -225,6 +256,7 @@ print("\\nChild: Completed normally")
             for process in processes:
                 if process.poll() is None:
                     process.kill()
+                    process.wait()  # Wait for cleanup to prevent zombie process
         finally:
             # Ensure all processes are cleaned up
             for process in processes:
@@ -248,6 +280,7 @@ print("\\nChild: Completed normally")
             except subprocess.TimeoutExpired:
                 print(f"   Process {process_id} timed out, terminating...")
                 process.kill()
+                process.wait()  # Wait for cleanup to prevent zombie process
             except Exception as e:
                 print(f"   Process {process_id} error: {e}")
 
@@ -283,6 +316,130 @@ print(f"Process {i} completed after {delay:.1f}s")
 
         print("   All processes monitored and completed")
 
+    def advanced_subprocess_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Advanced Subprocess - Long-Running Process Manager.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a process manager:
+        - Start long-running background processes
+        - Monitor process health
+        - Handle timeouts and failures
+        - Problem: Need fine-grained process control
+        
+        THE PROBLEM WITHOUT ADVANCED SUBPROCESS:
+        ========================================
+        - subprocess.run() blocks → can't monitor
+        - No process control → can't manage lifecycle
+        - No timeout handling → hung processes
+        - No signal handling → can't terminate gracefully
+        - System resource leaks → processes accumulate
+        
+        THE SOLUTION:
+        =============
+        Advanced subprocess (Popen) enables:
+        - Non-blocking execution → monitor processes
+        - Process lifecycle management → control processes
+        - Timeout handling → kill hung processes
+        - Signal handling → graceful termination
+        - Resource management → prevent leaks
+        
+        WHEN TO USE ADVANCED SUBPROCESS:
+        =================================
+        ✅ Long-running process management
+        ✅ Process monitoring systems
+        ✅ Timeout handling
+        ✅ Signal handling
+        ✅ Resource management
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Long-Running Process Manager")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Process manager for long-running processes")
+        print("  - Start background processes")
+        print("  - Monitor process health")
+        print("  - Handle timeouts and failures")
+        print("  - Problem: Need fine-grained process control")
+        print()
+        print("THE PROBLEM:")
+        print("  Without advanced subprocess:")
+        print("    ❌ subprocess.run() blocks → can't monitor")
+        print("    ❌ No process control → can't manage lifecycle")
+        print("    ❌ No timeout handling → hung processes")
+        print("    ❌ No signal handling → can't terminate gracefully")
+        print()
+        print("THE SOLUTION:")
+        print("  With advanced subprocess (Popen):")
+        print("    ✅ Non-blocking execution → monitor processes")
+        print("    ✅ Process lifecycle management → control processes")
+        print("    ✅ Timeout handling → kill hung processes")
+        print("    ✅ Signal handling → graceful termination")
+        print()
+        print("=" * 70)
+        print()
+
+        def monitor_process(process: subprocess.Popen, process_id: int) -> None:
+            """Monitor a process and handle timeouts."""
+            try:
+                stdout, stderr = process.communicate(timeout=2.0)
+                if process.returncode == 0:
+                    print(f"  Process {process_id}: Completed successfully")
+                else:
+                    print(f"  Process {process_id}: Failed with code {process.returncode}")
+            except subprocess.TimeoutExpired:
+                print(f"  Process {process_id}: Timeout - terminating")
+                process.kill()
+                process.wait()
+                print(f"  Process {process_id}: Terminated")
+
+        print("Starting and monitoring processes...")
+        print()
+
+        processes = []
+        for i in range(3):
+            # Start a process (simulate with sleep)
+            process = subprocess.Popen(
+                ["sleep", "1"] if sys.platform != "win32" else ["timeout", "/t", "1"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            processes.append((process, i+1))
+            print(f"  Started process {i+1} (PID: {process.pid})")
+
+        # Monitor processes
+        threads = []
+        for process, process_id in processes:
+            thread = threading.Thread(target=monitor_process, args=(process, process_id))
+            thread.start()
+            threads.append(thread)
+
+        # Wait for monitoring threads
+        for thread in threads:
+            thread.join()
+
+        print()
+        print("  ✅ Advanced subprocess enabled process management!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE ADVANCED SUBPROCESS:")
+        print("   ✅ Long-running process management")
+        print("   ✅ Process monitoring systems")
+        print("   ✅ Timeout handling")
+        print("   ✅ Signal handling")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Non-blocking process execution")
+        print("   - Process lifecycle control")
+        print("   - Timeout protection")
+        print("   - Resource management")
+        print("=" * 70)
+        print()
+
 
 def main() -> None:
     """Run all advanced subprocess examples."""
@@ -300,6 +457,12 @@ def main() -> None:
         example.signal_handling()
         example.resource_management()
         example.asynchronous_processing()
+
+        # Real-world scenarios
+        print("\n" + "=" * 70)
+        print("RUNNING REAL-WORLD SCENARIOS")
+        print("=" * 70 + "\n")
+        example.advanced_subprocess_real_world_example()
 
         print("\n" + "=" * 35)
         print("All advanced subprocess examples completed successfully!")

@@ -49,7 +49,34 @@ class StreamEvent:
 
 
 class ReactiveStream:
-    """Basic reactive stream implementation."""
+    """
+    Basic reactive stream implementation.
+
+    When to Use:
+        - Event-driven programming
+        - Stream processing
+        - Reactive patterns
+        - Data flow programming
+
+    Real-World Examples:
+        - Event streams: Process events
+        - Data pipelines: Transform data streams
+        - UI frameworks: Handle user events
+        - IoT systems: Process sensor data
+
+    Gotchas:
+        - Backpressure handling
+        - Stream completion
+        - Error propagation
+        - Subscriber management
+        - Memory with buffering
+
+    Performance Notes:
+        - Stream processing overhead
+        - Backpressure affects throughput
+        - Optimal for event-driven systems
+        - Balance buffer size vs memory
+    """
 
     def __init__(self, buffer_size: int = 1000):
         self.buffer_size = buffer_size

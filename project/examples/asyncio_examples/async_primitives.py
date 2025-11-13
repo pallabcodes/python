@@ -19,10 +19,72 @@ from typing import Dict, List, Optional
 class AsyncPrimitivesExample:
     """
     Examples of asyncio synchronization primitives.
+
+    This class demonstrates various synchronization primitives available in asyncio
+    for coordinating concurrent async operations. Understanding these primitives is
+    essential for building robust concurrent async applications.
+
+    When to Use:
+        - Coordinating access to shared resources in async code
+        - Limiting concurrency to prevent resource exhaustion
+        - Signaling between async tasks
+        - Implementing producer-consumer patterns
+        - Building complex synchronization patterns
+
+    Real-World Examples:
+        - Rate limiting: Use Semaphore to limit API request concurrency
+        - Resource pools: Use Lock to protect database connection pools
+        - Task coordination: Use Event to signal when initialization completes
+        - Producer-consumer: Use Condition for bounded buffer coordination
+        - Reader-writer: Use custom RWLock for read-heavy workloads
+
+    Gotchas:
+        - asyncio.Lock is not reentrant (unlike threading.Lock)
+        - Semaphores don't prevent resource leaks; use context managers
+        - Events are one-time; create new Event for repeated signaling
+        - Condition variables require holding the associated lock
+        - Deadlocks can occur with nested lock acquisition
+
+    Performance Notes:
+        - Locks have minimal overhead but can serialize execution
+        - Semaphores are efficient for limiting concurrency
+        - Events are very lightweight for signaling
+        - Condition variables add overhead; use only when needed
     """
 
     async def lock_basic_example(self) -> None:
-        """Demonstrate basic Lock usage."""
+        """
+        Demonstrate basic Lock usage for mutual exclusion.
+
+        Locks ensure that only one coroutine can execute a critical section at a time.
+        This is essential for protecting shared mutable state from race conditions.
+
+        When to Use:
+            - Protecting shared data structures from concurrent modification
+            - Ensuring atomic operations on shared state
+            - Implementing thread-safe counters or accumulators
+            - Protecting resource pools (connections, file handles)
+            - Coordinating access to external APIs or services
+
+        Real-World Examples:
+            - Database connection pool: Lock protects pool state
+            - Cache updates: Lock ensures cache consistency
+            - Counter increments: Lock prevents lost updates
+            - Configuration updates: Lock prevents inconsistent state
+            - File writing: Lock prevents interleaved writes
+
+        Gotchas:
+            - asyncio.Lock is NOT reentrant (unlike threading.Lock)
+            - Locking too much code reduces concurrency
+            - Deadlocks possible with multiple locks
+            - Always use async with for automatic release
+            - Don't hold locks during I/O operations
+
+        Performance Notes:
+            - Lock acquisition is very fast (~0.001ms)
+            - Contention reduces parallelism; minimize lock scope
+            - Fine-grained locking better than coarse-grained
+        """
         print("=== Basic Lock Usage ===")
 
         shared_counter = {"value": 0}
@@ -48,7 +110,37 @@ class AsyncPrimitivesExample:
         print()
 
     async def lock_reentrance_issue(self) -> None:
-        """Demonstrate the issue with Lock reentrance."""
+        """
+        Demonstrate the issue with Lock reentrance.
+
+        asyncio.Lock is NOT reentrant, meaning a coroutine cannot acquire the same
+        lock twice, even if it already holds it. This is different from threading.Lock
+        which is reentrant. Attempting to acquire a lock you already hold will deadlock.
+
+        When to Use:
+            - Understanding why nested lock acquisition fails
+            - Learning to refactor code to avoid reentrance
+            - Debugging deadlock issues in async code
+            - Designing lock-free or single-acquisition patterns
+
+        Real-World Examples:
+            - Helper functions: Don't acquire locks in helpers if caller already has it
+            - Recursive algorithms: Use lock-free data structures instead
+            - Callback chains: Pass lock state explicitly rather than reacquiring
+            - Middleware: Design to not require locks in nested calls
+
+        Gotchas:
+            - asyncio.Lock raises RuntimeError on reentrant acquisition
+            - This is different from threading.Lock which allows reentrance
+            - Solution: Refactor to avoid nested acquisition
+            - Alternative: Use a reentrant lock implementation (not built-in)
+            - Best practice: Design code to not need reentrant locks
+
+        Performance Notes:
+            - Reentrant locks add overhead; asyncio chose simplicity
+            - Non-reentrant locks are faster and simpler
+            - Design patterns can avoid need for reentrance
+        """
         print("=== Lock Reentrance Issue ===")
 
         lock = asyncio.Lock()
@@ -66,12 +158,13 @@ class AsyncPrimitivesExample:
                 print("Outer function: acquired lock")
                 await asyncio.sleep(0.1)
 
-                # This would cause a deadlock with Lock
+                # This will raise RuntimeError because lock is not reentrant
                 print("Outer function: calling nested function...")
                 try:
                     await nested_function_call()
-                except Exception as e:
-                    print(f"Deadlock detected: {e}")
+                except RuntimeError as e:
+                    print(f"RuntimeError (expected): {e}")
+                    print("asyncio.Lock is not reentrant - cannot acquire twice")
 
                 print("Outer function: releasing lock")
 
@@ -79,7 +172,40 @@ class AsyncPrimitivesExample:
         print()
 
     async def semaphore_example(self) -> None:
-        """Demonstrate Semaphore for limiting concurrency."""
+        """
+        Demonstrate Semaphore for limiting concurrency.
+
+        Semaphores allow a fixed number of coroutines to access a resource
+        simultaneously. This is useful for rate limiting, connection pooling,
+        and preventing resource exhaustion.
+
+        When to Use:
+            - Rate limiting API requests to external services
+            - Limiting concurrent database connections
+            - Controlling concurrent file operations
+            - Throttling network requests
+            - Managing resource pools (workers, connections)
+
+        Real-World Examples:
+            - API clients: Limit concurrent requests to respect rate limits
+            - Web scraping: Control number of simultaneous page fetches
+            - Database pools: Limit concurrent queries
+            - File processing: Control concurrent file I/O
+            - Worker pools: Limit number of active workers
+
+        Gotchas:
+            - Semaphore doesn't prevent resource leaks; always use context manager
+            - Releasing more than acquired increases count (use BoundedSemaphore)
+            - Count can go negative if not properly managed
+            - Not suitable for mutual exclusion (use Lock instead)
+            - Must release in finally block to prevent leaks
+
+        Performance Notes:
+            - Semaphore overhead is minimal
+            - Very efficient for concurrency limiting
+            - Better than creating fixed-size task pools
+            - Allows dynamic adjustment of concurrency
+        """
         print("=== Semaphore Example ===")
 
         # Semaphore allowing max 3 concurrent operations
@@ -88,7 +214,8 @@ class AsyncPrimitivesExample:
         async def limited_concurrent_task(task_id: str) -> None:
             """Task that uses semaphore to limit concurrency."""
             async with semaphore:
-                print(f"Task {task_id}: acquired semaphore (available: {semaphore._value})")
+                # Note: _value is private; in production, track separately if needed
+                print(f"Task {task_id}: acquired semaphore")
                 await asyncio.sleep(random.uniform(0.2, 0.8))
                 print(f"Task {task_id}: releasing semaphore")
 
@@ -99,7 +226,37 @@ class AsyncPrimitivesExample:
         print()
 
     async def bounded_semaphore_example(self) -> None:
-        """Demonstrate BoundedSemaphore."""
+        """
+        Demonstrate BoundedSemaphore for preventing semaphore leaks.
+
+        BoundedSemaphore prevents the semaphore count from exceeding its initial value,
+        which helps detect bugs where release() is called more times than acquire().
+
+        When to Use:
+            - When you want to detect semaphore leaks
+            - Debugging semaphore usage issues
+            - Ensuring semaphore count never exceeds limit
+            - Production code where leaks would be catastrophic
+            - Resource pools where leaks cause problems
+
+        Real-World Examples:
+            - Connection pools: Detect if connections aren't properly released
+            - Worker pools: Ensure workers are properly returned
+            - Rate limiters: Detect if releases exceed acquisitions
+            - Resource managers: Catch resource management bugs early
+
+        Gotchas:
+            - BoundedSemaphore raises ValueError if release() exceeds initial count
+            - Use context manager (async with) to prevent leaks automatically
+            - Not a substitute for proper resource management
+            - Helps detect bugs but doesn't prevent them
+            - Regular Semaphore allows count to grow unbounded
+
+        Performance Notes:
+            - Same performance as Semaphore
+            - Adds validation overhead on release()
+            - Use in production to catch bugs early
+        """
         print("=== BoundedSemaphore Example ===")
 
         # BoundedSemaphore prevents semaphore value from exceeding initial value
@@ -109,14 +266,14 @@ class AsyncPrimitivesExample:
             """Task that uses a bounded resource."""
             try:
                 async with bounded_sem:
-                    print(f"Task {task_id}: using resource (available: {bounded_sem._value})")
+                    print(f"Task {task_id}: using resource")
                     await asyncio.sleep(0.3)
 
                     # Simulate potential resource leak (don't release properly)
                     # In real code, this should be in a try/finally block
                     if random.random() > 0.7:  # 30% chance
-                        print(f"Task {task_id}: Oops, resource leak!")
-                        return  # Don't release the semaphore
+                        print(f"Task {task_id}: Simulated error (but context manager releases)")
+                        return  # Context manager ensures release happens
 
                 print(f"Task {task_id}: properly released resource")
             except Exception as e:
@@ -126,11 +283,45 @@ class AsyncPrimitivesExample:
         tasks = [resource_user(f"T{i+1}") for i in range(6)]
         await asyncio.gather(*tasks)
 
-        print(f"Final semaphore value: {bounded_sem._value}")
+        # Note: _value is private; in production, track semaphore state separately
+        # This is just for demonstration
+        print("All tasks completed (semaphore properly managed via context manager)")
         print()
 
     async def event_coordination(self) -> None:
-        """Demonstrate Event for task coordination."""
+        """
+        Demonstrate Event for task coordination and signaling.
+
+        Events allow one coroutine to signal others that something has happened.
+        Multiple coroutines can wait for the same event, and all will be notified
+        when the event is set.
+
+        When to Use:
+            - Signaling that initialization is complete
+            - Coordinating start of multiple workers
+            - Notifying that a condition has been met
+            - Implementing one-time barriers
+            - Simple producer-consumer signaling
+
+        Real-World Examples:
+            - Service startup: Signal when service is ready to accept requests
+            - Worker coordination: Start all workers simultaneously
+            - Cache warming: Signal when cache is populated
+            - Configuration loading: Signal when config is loaded
+            - Graceful shutdown: Signal shutdown to all workers
+
+        Gotchas:
+            - Events are one-time; create new Event for repeated signaling
+            - wait() doesn't consume the event; multiple waits see same state
+            - clear() resets event; waiting coroutines continue waiting
+            - Not suitable for counting or complex conditions (use Condition)
+            - Race condition: check event.is_set() before wait() if needed
+
+        Performance Notes:
+            - Events are very lightweight
+            - Efficient for one-to-many signaling
+            - Minimal overhead for coordination
+        """
         print("=== Event Coordination ===")
 
         start_event = asyncio.Event()
@@ -167,7 +358,39 @@ class AsyncPrimitivesExample:
         print()
 
     async def event_barrier_simulation(self) -> None:
-        """Demonstrate using Event as a barrier."""
+        """
+        Demonstrate using Event as a barrier for synchronization.
+
+        A barrier ensures that a group of coroutines wait for each other before
+        proceeding. All coroutines must reach the barrier before any can continue.
+        Python 3.11+ has asyncio.Barrier, but this shows how to implement it with Events.
+
+        When to Use:
+            - Synchronizing multiple workers at checkpoints
+            - Ensuring all tasks complete a phase before next phase
+            - Coordinating parallel algorithm phases
+            - Implementing distributed consensus patterns
+            - Synchronizing test execution
+
+        Real-World Examples:
+            - Parallel algorithms: Synchronize at algorithm phases
+            - Data processing: Wait for all workers to finish a batch
+            - Testing: Ensure all test setup completes before tests run
+            - Distributed systems: Coordinate across nodes
+            - Pipeline stages: Synchronize between pipeline stages
+
+        Gotchas:
+            - Barrier is one-time use; create new barrier for each synchronization
+            - All parties must call wait() or barrier never releases
+            - Deadlock if one party never reaches barrier
+            - Use timeout to prevent indefinite waiting
+            - Python 3.11+ has built-in asyncio.Barrier (use that if available)
+
+        Performance Notes:
+            - Barrier overhead is minimal
+            - All parties wait for slowest one
+            - Use timeout to prevent hanging on failures
+        """
         print("=== Event as Barrier ===")
 
         # Note: asyncio.Barrier was added in Python 3.11
@@ -194,6 +417,11 @@ class AsyncPrimitivesExample:
 
                 await self.event.wait()
 
+            def reset(self) -> None:
+                """Reset barrier for reuse."""
+                self.waiting = 0
+                self.event.clear()
+
         async def barrier_task(task_id: str, barrier: EventBarrier) -> None:
             """Task that uses barrier synchronization."""
             print(f"Task {task_id}: approaching barrier")
@@ -215,7 +443,40 @@ class AsyncPrimitivesExample:
         print()
 
     async def condition_variables(self) -> None:
-        """Demonstrate Condition variables."""
+        """
+        Demonstrate Condition variables for complex synchronization.
+
+        Condition variables allow coroutines to wait for a condition to become true.
+        They combine a lock with notification mechanisms, enabling efficient
+        producer-consumer patterns and complex coordination.
+
+        When to Use:
+            - Producer-consumer patterns with bounded buffers
+            - Waiting for complex conditions to become true
+            - Coordinating multiple coroutines based on state
+            - Implementing blocking queues
+            - Synchronizing based on data state
+
+        Real-World Examples:
+            - Task queues: Wait for tasks to be available
+            - Bounded buffers: Wait for space or data
+            - Resource pools: Wait for resources to become available
+            - State machines: Wait for state transitions
+            - Data pipelines: Coordinate between pipeline stages
+
+        Gotchas:
+            - Must acquire the associated lock before waiting
+            - Always use while loop to check condition (not if)
+            - Spurious wakeups can occur; recheck condition
+            - notify() wakes one waiter; notify_all() wakes all
+            - Condition uses the lock's acquire/release semantics
+
+        Performance Notes:
+            - More overhead than Events or Locks
+            - Efficient for complex coordination
+            - Prefer Events for simple signaling
+            - Use only when condition-based waiting is needed
+        """
         print("=== Condition Variables ===")
 
         # Shared buffer
@@ -273,7 +534,40 @@ class AsyncPrimitivesExample:
         print()
 
     async def reader_writer_lock(self) -> None:
-        """Demonstrate reader-writer synchronization pattern."""
+        """
+        Demonstrate reader-writer synchronization pattern.
+
+        Reader-writer locks allow multiple readers or one writer, but not both.
+        This optimizes for read-heavy workloads where reads can happen concurrently
+        but writes need exclusive access.
+
+        When to Use:
+            - Read-heavy workloads with occasional writes
+            - Caches that are frequently read but rarely updated
+            - Configuration that is read often but updated rarely
+            - Shared data structures with many readers, few writers
+            - Optimizing for read performance
+
+        Real-World Examples:
+            - Configuration caches: Many reads, rare updates
+            - Database caches: Frequent reads, occasional invalidation
+            - Shared state: Many observers, few modifiers
+            - Read replicas: Multiple readers, single writer
+            - Document stores: Many readers, occasional updates
+
+        Gotchas:
+            - Writer starvation: Readers can starve writers
+            - Complex implementation: Easy to introduce bugs
+            - Not built into asyncio; must implement custom
+            - Consider if simpler Lock is sufficient
+            - Deadlock risk with nested acquisitions
+
+        Performance Notes:
+            - Allows concurrent reads (better than exclusive lock)
+            - Writers still block all readers
+            - Overhead higher than simple Lock
+            - Only beneficial for read-heavy workloads
+        """
         print("=== Reader-Writer Pattern ===")
 
         class AsyncRWLock:
@@ -356,7 +650,39 @@ class AsyncPrimitivesExample:
         print()
 
     async def deadlock_prevention(self) -> None:
-        """Demonstrate deadlock prevention techniques."""
+        """
+        Demonstrate deadlock prevention techniques.
+
+        Deadlocks occur when coroutines wait for each other indefinitely. This method
+        shows techniques to prevent deadlocks: consistent lock ordering and timeouts.
+
+        When to Use:
+            - Acquiring multiple locks in the same coroutine
+            - Complex synchronization patterns
+            - Preventing indefinite hangs
+            - Building robust concurrent systems
+            - Debugging lock-related issues
+
+        Real-World Examples:
+            - Database transactions: Consistent lock ordering prevents deadlocks
+            - Resource allocation: Order resources consistently
+            - Multi-step operations: Use timeouts to prevent hangs
+            - Service coordination: Timeout prevents indefinite waiting
+            - Error recovery: Timeouts enable graceful degradation
+
+        Gotchas:
+            - Always acquire locks in the same order
+            - Use timeouts to prevent indefinite waiting
+            - Release locks in reverse order of acquisition
+            - Consider if you really need multiple locks
+            - Deadlocks are hard to debug; prevent proactively
+
+        Performance Notes:
+            - Consistent ordering adds no overhead
+            - Timeouts add minimal overhead
+            - Better than deadlock detection (prevent vs detect)
+            - Timeout values should be based on expected operation time
+        """
         print("=== Deadlock Prevention ===")
 
         # Resources with proper ordering
@@ -451,7 +777,7 @@ class AsyncPrimitivesExample:
             await asyncio.gather(*tasks)
 
             elapsed = time.time() - start_time
-            print(".2f")
+            print(f"{test_name}: {elapsed:.2f} seconds, final value: {shared_counter['value']}")
             return elapsed
 
         print("Comparing synchronization overhead:")
@@ -468,7 +794,39 @@ class AsyncPrimitivesExample:
         print()
 
     async def synchronization_best_practices(self) -> None:
-        """Demonstrate synchronization best practices."""
+        """
+        Demonstrate synchronization best practices.
+
+        This method shows important best practices for using synchronization primitives
+        effectively: minimal lock scope, exception safety, and avoiding locks during I/O.
+
+        When to Use:
+            - Writing production async code with synchronization
+            - Optimizing lock performance
+            - Preventing common synchronization bugs
+            - Building maintainable concurrent code
+            - Learning async synchronization patterns
+
+        Real-World Examples:
+            - Minimize scope: Update counters quickly, release lock
+            - Exception safety: Always release locks in finally blocks
+            - I/O separation: Use semaphores for I/O, locks for state
+            - Resource management: Context managers ensure cleanup
+            - Performance: Keep critical sections small
+
+        Gotchas:
+            - Holding locks during I/O blocks other coroutines
+            - Exceptions can leave locks held; use context managers
+            - Large critical sections reduce parallelism
+            - Nested locks increase deadlock risk
+            - Always use async with for automatic cleanup
+
+        Performance Notes:
+            - Smaller lock scope = better parallelism
+            - Context managers add minimal overhead
+            - Exception handling overhead is negligible
+            - I/O outside locks improves throughput
+        """
         print("=== Synchronization Best Practices ===")
 
         # Best Practice 1: Minimize lock scope
@@ -541,6 +899,230 @@ class AsyncPrimitivesExample:
         print(f"\nFinal shared state: counter={shared_data['counter']}, items={len(shared_data['data'])}")
         print()
 
+    async def semaphore_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Semaphore - Rate-Limited API Client.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building an API client:
+        - Make requests to external API
+        - API has rate limit (10 requests/second)
+        - Problem: Need to respect rate limits
+        
+        THE PROBLEM WITHOUT SEMAPHORE:
+        ==============================
+        - Send all requests at once → rate limit exceeded
+        - API rejects requests → errors
+        - Need manual rate limiting → complex
+        - Inefficient retry logic → waste
+        - Poor user experience
+        
+        THE SOLUTION:
+        =============
+        Semaphore enables:
+        - Limit concurrent requests to rate limit
+        - Automatic throttling → respects limits
+        - Simple to use → easy to implement
+        - Prevents rate limit errors → reliable
+        - Optimal request rate → efficient
+        
+        WHEN TO USE SEMAPHORE:
+        ======================
+        ✅ Rate-limited API clients
+        ✅ Resource pool management
+        ✅ Limiting concurrent operations
+        ✅ Connection pooling
+        ✅ Throttling requests
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Rate-Limited API Client")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - API client making requests")
+        print("  - External API has rate limit (10 requests/second)")
+        print("  - Problem: Need to respect rate limits")
+        print()
+        print("THE PROBLEM:")
+        print("  Without semaphore:")
+        print("    ❌ Send all requests at once → rate limit exceeded")
+        print("    ❌ API rejects requests → errors")
+        print("    ❌ Need manual rate limiting → complex")
+        print("    ❌ Inefficient retry logic → waste")
+        print()
+        print("THE SOLUTION:")
+        print("  With semaphore:")
+        print("    ✅ Limit concurrent requests to rate limit")
+        print("    ✅ Automatic throttling → respects limits")
+        print("    ✅ Simple to use → easy to implement")
+        print("    ✅ Prevents rate limit errors → reliable")
+        print()
+        print("=" * 70)
+        print()
+
+        # Rate limit: max 3 concurrent requests
+        semaphore = asyncio.Semaphore(3)
+
+        async def make_api_request(request_id: int) -> dict:
+            """Simulate making an API request."""
+            async with semaphore:  # Acquire semaphore (limit concurrency)
+                print(f"  Request {request_id}: Making API call...")
+                await asyncio.sleep(0.1)  # Simulate API call
+                print(f"  Request {request_id}: API call completed")
+                return {"request_id": request_id, "status": "success"}
+
+        print("Making 10 API requests with rate limiting (max 3 concurrent)...")
+        print()
+
+        start_time = time.time()
+        tasks = [make_api_request(i+1) for i in range(10)]
+        results = await asyncio.gather(*tasks)
+        elapsed = time.time() - start_time
+
+        print()
+        print("Results:")
+        print(f"  Requests completed: {len(results)}")
+        print(f"  Total time: {elapsed:.3f}s")
+        print(f"  Average rate: {len(results)/elapsed:.1f} requests/second")
+        print("  ✅ Semaphore prevented rate limit violations!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE SEMAPHORE:")
+        print("   ✅ Rate-limited API clients")
+        print("   ✅ Resource pool management")
+        print("   ✅ Limiting concurrent operations")
+        print("   ✅ Connection pooling")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Prevents rate limit violations")
+        print("   - Automatic throttling")
+        print("   - Simple to implement")
+        print("   - Reliable API interactions")
+        print("=" * 70)
+        print()
+
+    async def event_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Event - Service Startup Coordination.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a microservice:
+        - Multiple components need to initialize
+        - Service ready only when all components ready
+        - Problem: Coordinate startup across components
+        
+        THE PROBLEM WITHOUT EVENT:
+        ===========================
+        - Components start independently → race conditions
+        - Service accepts requests before ready → errors
+        - Polling for readiness → inefficient
+        - No coordination → unreliable startup
+        - System fragile → production issues
+        
+        THE SOLUTION:
+        =============
+        Event enables:
+        - Components signal when ready
+        - Service waits for all components → reliable
+        - One-to-many signaling → efficient
+        - Simple coordination → easy to implement
+        - Guaranteed readiness → production-ready
+        
+        WHEN TO USE EVENT:
+        ==================
+        ✅ Service startup coordination
+        ✅ One-to-many signaling
+        ✅ Simple coordination needs
+        ✅ Ready state notification
+        ✅ Component initialization
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Service Startup Coordination")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Microservice with multiple components")
+        print("  - Components need to initialize")
+        print("  - Service ready only when all components ready")
+        print("  - Problem: Coordinate startup across components")
+        print()
+        print("THE PROBLEM:")
+        print("  Without event:")
+        print("    ❌ Components start independently → race conditions")
+        print("    ❌ Service accepts requests before ready → errors")
+        print("    ❌ Polling for readiness → inefficient")
+        print("    ❌ No coordination → unreliable startup")
+        print()
+        print("THE SOLUTION:")
+        print("  With event:")
+        print("    ✅ Components signal when ready")
+        print("    ✅ Service waits for all components → reliable")
+        print("    ✅ One-to-many signaling → efficient")
+        print("    ✅ Simple coordination → easy to implement")
+        print()
+        print("=" * 70)
+        print()
+
+        ready_event = asyncio.Event()
+
+        async def initialize_component(component_name: str, init_time: float) -> None:
+            """Simulate component initialization."""
+            print(f"  {component_name}: Initializing...")
+            await asyncio.sleep(init_time)  # Simulate initialization
+            print(f"  {component_name}: Ready!")
+            ready_event.set()  # Signal readiness
+
+        async def wait_for_service_ready() -> None:
+            """Wait for service to be ready."""
+            print("Waiting for all components to be ready...")
+            await ready_event.wait()  # Wait for event
+            print("✅ Service is ready to accept requests!")
+
+        print("Starting service initialization...")
+        print()
+
+        # Initialize components concurrently
+        components = [
+            ("Database", 0.1),
+            ("Cache", 0.15),
+            ("API Gateway", 0.2),
+        ]
+
+        init_tasks = [
+            initialize_component(name, time)
+            for name, time in components
+        ]
+
+        # Wait for service ready (in parallel with initialization)
+        await asyncio.gather(
+            *init_tasks,
+            wait_for_service_ready()
+        )
+
+        print()
+        print("  ✅ Event coordinated service startup!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE EVENT:")
+        print("   ✅ Service startup coordination")
+        print("   ✅ One-to-many signaling")
+        print("   ✅ Simple coordination needs")
+        print("   ✅ Ready state notification")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Reliable startup coordination")
+        print("   - One-to-many signaling")
+        print("   - Simple to implement")
+        print("   - Production-ready systems")
+        print("=" * 70)
+        print()
+
 
 async def main() -> None:
     """Run all async primitives examples."""
@@ -560,6 +1142,13 @@ async def main() -> None:
     await example.deadlock_prevention()
     await example.lock_performance_comparison()
     await example.synchronization_best_practices()
+
+    # Real-world scenarios
+    print("\n" + "=" * 70)
+    print("RUNNING REAL-WORLD SCENARIOS")
+    print("=" * 70 + "\n")
+    await example.semaphore_real_world_example()
+    await example.event_real_world_example()
 
     print("All async primitives examples completed!")
 

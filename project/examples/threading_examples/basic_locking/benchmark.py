@@ -53,10 +53,38 @@ class BenchmarkResult:
 
 
 class CounterBenchmark:
-    """Benchmark suite for counter implementations.
+    """
+    Benchmark suite for counter implementations.
 
     Provides comprehensive performance testing of different counter
     implementations under various concurrency scenarios.
+
+    When to Use:
+        - Performance testing
+        - Comparing implementations
+        - Optimizing synchronization
+        - Understanding lock overhead
+        - Capacity planning
+
+    Real-World Examples:
+        - Performance testing: Test counter performance
+        - Optimization: Optimize synchronization
+        - Comparison: Compare implementations
+        - Capacity planning: Plan for load
+        - Benchmarking: Benchmark counter operations
+
+    Gotchas:
+        - Benchmark results vary by system
+        - Warmup runs affect results
+        - System load affects measurements
+        - Multiple runs needed for accuracy
+        - Results are relative, not absolute
+
+    Performance Notes:
+        - Benchmark overhead affects results
+        - Warmup reduces JIT effects
+        - Multiple runs improve accuracy
+        - System load affects measurements
 
     Attributes:
         logger: Logger for benchmark execution details.
@@ -311,8 +339,8 @@ def run_performance_benchmark() -> None:
     # Print results
     for result in results:
         print(f"{result.implementation} ({result.thread_count} threads):")
-        print(".2f")
-        print(".2f")
+        print(f"  Throughput: {result.throughput:.2f} ops/sec")
+        print(f"  Avg Latency: {result.avg_latency*1000:.2f} ms/op")
         print()
 
     # Analyze results
@@ -321,9 +349,9 @@ def run_performance_benchmark() -> None:
     print("=== Analysis ===")
     for impl, data in analysis.get("implementations", {}).items():
         print(f"{impl}:")
-        print(".1f")
-        print(".0f")
-        print(".1f")
+        print(f"  Scaling Efficiency: {data['avg_scaling_efficiency']:.1f}")
+        print(f"  Max Throughput: {data['max_throughput']:.0f} ops/sec")
+        print(f"  Min Latency: {data['min_latency']*1000:.1f} ms/op")
         print()
 
     for rec in analysis.get("recommendations", []):

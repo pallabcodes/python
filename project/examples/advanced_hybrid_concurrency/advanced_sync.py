@@ -45,6 +45,31 @@ class DistributedLock:
     - Re-entrant locking within same process
     - Blocking and non-blocking modes
     - Cross-platform compatibility
+
+    When to Use:
+        - Distributed coordination
+        - Multi-machine locking
+        - Cross-process synchronization
+        - Distributed critical sections
+
+    Real-World Examples:
+        - Distributed systems: Coordinate across machines
+        - Microservices: Coordinate service actions
+        - Distributed databases: Coordinate operations
+        - Cloud deployments: Coordinate deployments
+
+    Gotchas:
+        - Network latency affects lock acquisition
+        - Clock skew affects expiration
+        - Redis availability required
+        - Lock renewal overhead
+        - Deadlock prevention via expiration
+
+    Performance Notes:
+        - Network overhead for lock operations
+        - Redis latency affects performance
+        - Lock renewal adds overhead
+        - Optimal for distributed coordination
     """
 
     def __init__(self,

@@ -12,7 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class TypedThreadPoolExecutor:
-    """Enhanced ThreadPoolExecutor with type safety and monitoring.
+    """
+    Enhanced ThreadPoolExecutor with type safety and monitoring.
 
     This wrapper provides production-grade features around ThreadPoolExecutor:
     - Type-safe task submission and result handling
@@ -20,6 +21,33 @@ class TypedThreadPoolExecutor:
     - Task cancellation and timeout management
     - Detailed performance monitoring and statistics
     - Structured logging with correlation IDs
+
+    When to Use:
+        - Thread pool management with monitoring
+        - Type-safe task execution
+        - Production thread pool needs
+        - Task lifecycle tracking
+        - Performance monitoring
+
+    Real-World Examples:
+        - Web servers: Handle concurrent requests
+        - Data processing: Process data in parallel
+        - Task queues: Execute queued tasks
+        - API clients: Concurrent API calls
+        - File processing: Process files concurrently
+
+    Gotchas:
+        - Must call shutdown() or use context manager
+        - Tasks must be picklable for some operations
+        - Thread pool overhead for small tasks
+        - GIL limits true parallelism
+        - Resource cleanup on shutdown
+
+    Performance Notes:
+        - Optimal for I/O-bound tasks
+        - GIL limits CPU-bound parallelism
+        - Thread overhead for many small tasks
+        - Balance worker count vs overhead
 
     The class is split across multiple modules for maintainability:
     - executor_core.py: Initialization and basic operations

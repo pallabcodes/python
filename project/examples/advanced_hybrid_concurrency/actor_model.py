@@ -47,7 +47,34 @@ class Message:
 
 
 class Actor(ABC):
-    """Base actor class."""
+    """
+    Base actor class.
+
+    When to Use:
+        - Message-passing concurrency
+        - Actor model patterns
+        - Isolated state management
+        - Fault-tolerant systems
+
+    Real-World Examples:
+        - Chat systems: User actors
+        - Game servers: Player actors
+        - Distributed systems: Service actors
+        - Event-driven systems: Event actors
+
+    Gotchas:
+        - Message passing overhead
+        - Actor lifecycle management
+        - Dead letter handling
+        - Supervisor hierarchies
+        - State isolation
+
+    Performance Notes:
+        - Message passing overhead
+        - Optimal for isolated state
+        - Scales with actor count
+        - Balance actors vs overhead
+    """
 
     def __init__(self, actor_id: Optional[str] = None):
         self.actor_id = actor_id or str(uuid.uuid4())

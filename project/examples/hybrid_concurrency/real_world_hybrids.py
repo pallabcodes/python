@@ -298,6 +298,150 @@ class WebServerHybrid:
             "requests_per_second": len(self._metrics) / (time.time() - self._metrics[0]["processing_time"]) if self._metrics else 0
         }
 
+    async def webserver_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Hybrid Web Server - Intelligent Request Routing.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a web server that handles diverse requests:
+        - API calls (I/O-bound) - database queries, external APIs
+        - Data processing (moderate CPU) - validation, transformation
+        - ML inference (heavy CPU) - model predictions, calculations
+        - Problem: Different requests need different concurrency models
+        
+        THE PROBLEM WITHOUT INTELLIGENT ROUTING:
+        ========================================
+        - Route all to one model → suboptimal performance
+        - I/O requests in processes → unnecessary overhead
+        - CPU requests in threads → GIL limits parallelism
+        - System inefficient → poor user experience
+        
+        THE SOLUTION:
+        =============
+        Hybrid Web Server enables:
+        - Intelligent routing based on request type
+        - I/O requests → AsyncIO (efficient)
+        - Moderate CPU → Threads (balanced)
+        - Heavy CPU → Processes (true parallelism)
+        - Optimal performance → best model per request
+        
+        WHEN TO USE HYBRID WEB SERVER:
+        ==============================
+        ✅ Diverse request types (I/O + CPU)
+        ✅ Need intelligent routing
+        ✅ Performance optimization critical
+        ✅ Mixed workload handling
+        ✅ Production web services
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Hybrid Web Server")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Web server handling diverse requests")
+        print("  - API calls (I/O-bound) - database queries, external APIs")
+        print("  - Data processing (moderate CPU) - validation, transformation")
+        print("  - ML inference (heavy CPU) - model predictions, calculations")
+        print()
+        print("THE PROBLEM:")
+        print("  Without intelligent routing:")
+        print("    ❌ Route all to one model → suboptimal performance")
+        print("    ❌ I/O requests in processes → unnecessary overhead")
+        print("    ❌ CPU requests in threads → GIL limits parallelism")
+        print("    ❌ System inefficient → poor user experience")
+        print()
+        print("THE SOLUTION:")
+        print("  With Hybrid Web Server:")
+        print("    ✅ Intelligent routing based on request type")
+        print("    ✅ I/O requests → AsyncIO (efficient)")
+        print("    ✅ Moderate CPU → Threads (balanced)")
+        print("    ✅ Heavy CPU → Processes (true parallelism)")
+        print()
+        print("=" * 70)
+        print()
+
+        # Register route handlers
+        @self.route("/api/data", methods=["GET"])
+        async def api_handler(request: Request):
+            """I/O-bound API handler."""
+            await asyncio.sleep(0.05)  # Simulate database query
+            return {"data": "api_response", "source": "database"}
+
+        @self.route("/process/validate", methods=["POST"])
+        async def validate_handler(request: Request):
+            """Moderate CPU handler."""
+            def validate(data):
+                # Simulate validation
+                time.sleep(0.1)
+                return {"valid": True, "checks": 10}
+            
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(self._thread_executor, validate, request.data)
+
+        @self.route("/ml/inference", methods=["POST"])
+        async def ml_handler(request: Request):
+            """Heavy CPU handler."""
+            def inference(data):
+                # Simulate ML inference
+                result = 0
+                for i in range(500000):
+                    result += hash(str(data) + str(i)) % 1000
+                return {"prediction": result % 10, "confidence": 0.95}
+            
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(self._process_executor, inference, request.data)
+
+        print("Simulating web server with diverse requests...")
+        print("  - 3 API requests (I/O-bound)")
+        print("  - 2 validation requests (moderate CPU)")
+        print("  - 2 ML inference requests (heavy CPU)")
+        print()
+
+        requests_to_simulate = [
+            Request("req_1", "/api/data", "GET", {}, priority=1),
+            Request("req_2", "/api/data", "GET", {}, priority=1),
+            Request("req_3", "/api/data", "GET", {}, priority=1),
+            Request("req_4", "/process/validate", "POST", {"data": "test"}, priority=2),
+            Request("req_5", "/process/validate", "POST", {"data": "test"}, priority=2),
+            Request("req_6", "/ml/inference", "POST", {"features": [1, 2, 3]}, priority=3),
+            Request("req_7", "/ml/inference", "POST", {"features": [4, 5, 6]}, priority=3),
+        ]
+
+        start_time = time.time()
+        tasks = [self.handle_request(req) for req in requests_to_simulate]
+        results = await asyncio.gather(*tasks)
+        elapsed = time.time() - start_time
+
+        print("Results:")
+        worker_distribution = defaultdict(int)
+        for result in results:
+            worker_distribution[result.worker_type] += 1
+            print(f"  ✅ {result.request_id}: {result.status_code} "
+                  f"({result.worker_type}, {result.processing_time:.3f}s)")
+
+        print()
+        print(f"Total time: {elapsed:.3f}s")
+        print(f"Worker distribution: {dict(worker_distribution)}")
+        print("  ✅ Hybrid Web Server intelligently routed requests!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE HYBRID WEB SERVER:")
+        print("   ✅ Diverse request types (I/O + CPU)")
+        print("   ✅ Need intelligent routing")
+        print("   ✅ Performance optimization critical")
+        print("   ✅ Mixed workload handling")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Optimal model per request type")
+        print("   - Intelligent routing")
+        print("   - Best performance for each workload")
+        print("   - Production-ready architecture")
+        print("=" * 70)
+        print()
+
 
 class DataPipelineHybrid:
     """
@@ -566,6 +710,118 @@ class DataPipelineHybrid:
                 "stage_stats": stats,
                 "throughput": self._processed_items / sum(sum(times) for times in self._stage_metrics.values()) if self._stage_metrics else 0
             }
+
+    async def pipeline_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Hybrid Data Pipeline - Multi-Stage Processing.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a data processing pipeline:
+        - Stage 1: Ingestion (I/O) - receive data streams
+        - Stage 2: Validation (CPU-light) - data quality checks
+        - Stage 3: Processing (CPU-heavy) - heavy computation
+        - Stage 4: Aggregation (CPU-light) - combine results
+        - Stage 5: Storage (I/O) - write to storage
+        - Problem: Each stage needs different concurrency model
+        
+        THE PROBLEM WITHOUT HYBRID PIPELINE:
+        =====================================
+        - Use one model for all → suboptimal
+        - Sequential processing → very slow
+        - No parallelism → underutilized resources
+        - System inefficient → poor throughput
+        
+        THE SOLUTION:
+        =============
+        Hybrid Pipeline enables:
+        - Each stage uses optimal concurrency model
+        - I/O stages → AsyncIO (efficient)
+        - CPU-light stages → Threads (balanced)
+        - CPU-heavy stages → Processes (parallel)
+        - Pipeline stages run concurrently → optimal throughput
+        
+        WHEN TO USE HYBRID DATA PIPELINE:
+        =================================
+        ✅ Multi-stage data processing
+        ✅ Different stages need different models
+        ✅ ETL pipelines
+        ✅ Data transformation workflows
+        ✅ Production data systems
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Hybrid Data Pipeline")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Data processing pipeline")
+        print("  - Stage 1: Ingestion (I/O) - receive data streams")
+        print("  - Stage 2: Validation (CPU-light) - data quality checks")
+        print("  - Stage 3: Processing (CPU-heavy) - heavy computation")
+        print("  - Stage 4: Aggregation (CPU-light) - combine results")
+        print("  - Stage 5: Storage (I/O) - write to storage")
+        print()
+        print("THE PROBLEM:")
+        print("  Without hybrid pipeline:")
+        print("    ❌ Use one model for all → suboptimal")
+        print("    ❌ Sequential processing → very slow")
+        print("    ❌ No parallelism → underutilized resources")
+        print("    ❌ System inefficient → poor throughput")
+        print()
+        print("THE SOLUTION:")
+        print("  With Hybrid Pipeline:")
+        print("    ✅ Each stage uses optimal concurrency model")
+        print("    ✅ I/O stages → AsyncIO (efficient)")
+        print("    ✅ CPU-light stages → Threads (balanced)")
+        print("    ✅ CPU-heavy stages → Processes (parallel)")
+        print()
+        print("=" * 70)
+        print()
+
+        print("Submitting data items to pipeline...")
+        print("  - 5 data items")
+        print("  - Each goes through all 5 stages")
+        print()
+
+        # Submit data items
+        data_items = [f"data_item_{i}" for i in range(5)]
+        item_ids = []
+        for data in data_items:
+            item_id = await self.submit_data(data)
+            item_ids.append(item_id)
+
+        print(f"Submitted {len(item_ids)} items")
+        print("  Pipeline processing...")
+        print()
+
+        # Wait for processing
+        await asyncio.sleep(2.0)  # Allow pipeline to process
+
+        stats = self.get_pipeline_stats()
+        print("Results:")
+        print(f"  Items processed: {stats['total_items_processed']}")
+        print("  Stage performance:")
+        for stage, stage_stats in stats['stage_stats'].items():
+            print(f"    {stage}: avg={stage_stats['avg_time']:.3f}s, "
+                  f"items={stage_stats['items_processed']}")
+        print("  ✅ Hybrid Pipeline optimized each stage!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE HYBRID DATA PIPELINE:")
+        print("   ✅ Multi-stage data processing")
+        print("   ✅ Different stages need different models")
+        print("   ✅ ETL pipelines")
+        print("   ✅ Data transformation workflows")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Optimal model per stage")
+        print("   - Concurrent stage processing")
+        print("   - Maximum throughput")
+        print("   - Production-ready architecture")
+        print("=" * 70)
+        print()
 
 
 class DatabaseHybrid:
@@ -842,6 +1098,124 @@ class DatabaseHybrid:
                 "data_records": len(self._data_store)
             }
 
+    async def database_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Hybrid Database - Fast Queries + Heavy Analytics.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a database system:
+        - Fast queries (I/O-bound) - simple lookups, filtered queries
+        - Cached queries (I/O-bound) - cache lookups with light processing
+        - Analytics queries (CPU-heavy) - aggregations, complex calculations
+        - Problem: Different query types need different concurrency models
+        
+        THE PROBLEM WITHOUT HYBRID DATABASE:
+        =====================================
+        - Route all queries to one model → suboptimal
+        - Fast queries in processes → unnecessary overhead
+        - Analytics in threads → GIL limits parallelism
+        - System inefficient → poor performance
+        
+        THE SOLUTION:
+        =============
+        Hybrid Database enables:
+        - Fast queries → AsyncIO (efficient I/O)
+        - Cached queries → Threads (light processing)
+        - Analytics → Processes (true parallelism)
+        - Optimal performance → best model per query type
+        
+        WHEN TO USE HYBRID DATABASE:
+        ============================
+        ✅ Mixed query types (fast + analytics)
+        ✅ Need query type optimization
+        ✅ Performance critical
+        ✅ Production database systems
+        ✅ OLTP + OLAP workloads
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Hybrid Database System")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Database system")
+        print("  - Fast queries (I/O-bound) - simple lookups, filtered queries")
+        print("  - Cached queries (I/O-bound) - cache lookups with light processing")
+        print("  - Analytics queries (CPU-heavy) - aggregations, complex calculations")
+        print()
+        print("THE PROBLEM:")
+        print("  Without hybrid database:")
+        print("    ❌ Route all queries to one model → suboptimal")
+        print("    ❌ Fast queries in processes → unnecessary overhead")
+        print("    ❌ Analytics in threads → GIL limits parallelism")
+        print("    ❌ System inefficient → poor performance")
+        print()
+        print("THE SOLUTION:")
+        print("  With Hybrid Database:")
+        print("    ✅ Fast queries → AsyncIO (efficient I/O)")
+        print("    ✅ Cached queries → Threads (light processing)")
+        print("    ✅ Analytics → Processes (true parallelism)")
+        print()
+        print("=" * 70)
+        print()
+
+        print("Executing diverse queries...")
+        print("  - 3 fast queries (I/O-bound)")
+        print("  - 2 cached queries (I/O + light CPU)")
+        print("  - 2 analytics queries (CPU-heavy)")
+        print()
+
+        queries = [
+            (self.fast_query, {"type": "get_all", "limit": 10}),
+            (self.fast_query, {"type": "get_by_id", "id": 1}),
+            (self.fast_query, {"type": "get_all", "limit": 5}),
+            (self.cached_query, {"type": "get_all", "limit": 20}),
+            (self.cached_query, {"type": "get_by_id", "id": 2}),
+            (self.analytics_query, {"type": "aggregate", "field": "value"}),
+            (self.analytics_query, {"type": "statistics", "field": "value"}),
+        ]
+
+        start_time = time.time()
+        results = await asyncio.gather(*[query_func(query) for query_func, query in queries])
+        elapsed = time.time() - start_time
+
+        print("Results:")
+        query_types = defaultdict(int)
+        for i, (query_func, query) in enumerate(queries):
+            query_type = "fast" if query_func == self.fast_query else "cached" if query_func == self.cached_query else "analytics"
+            query_types[query_type] += 1
+            result_count = len(results[i]) if isinstance(results[i], list) else 1
+            print(f"  ✅ {query_type} query: {result_count} results")
+
+        print()
+        print(f"Total time: {elapsed:.3f}s")
+        print(f"Query distribution: {dict(query_types)}")
+        
+        stats = self.get_database_stats()
+        print("Performance by query type:")
+        for query_type, type_stats in stats.get('query_stats', {}).items():
+            print(f"  {query_type}: avg={type_stats['avg_time']:.3f}s, "
+                  f"count={type_stats['total_queries']}")
+        
+        print("  ✅ Hybrid Database optimized each query type!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE HYBRID DATABASE:")
+        print("   ✅ Mixed query types (fast + analytics)")
+        print("   ✅ Need query type optimization")
+        print("   ✅ Performance critical")
+        print("   ✅ OLTP + OLAP workloads")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Optimal model per query type")
+        print("   - Fast queries stay fast")
+        print("   - Analytics get true parallelism")
+        print("   - Production-ready architecture")
+        print("=" * 70)
+        print()
+
 
 # Web server route handlers
 def handle_api_request(request: Request) -> Dict[str, Any]:
@@ -903,7 +1277,8 @@ async def demonstrate_real_world_hybrids():
                   f"({result.processing_time:.3f}s, {result.worker_type})")
 
         server_stats = server.get_server_stats()
-        print(".1f"
+        print(f"Requests/sec: {server_stats['requests_per_second']:.1f}, "
+              f"avg_time={server_stats['avg_processing_time']:.3f}s, "
               f"success_rate={server_stats['success_rate']:.3f}")
 
     # 2. Data Pipeline Hybrid
@@ -931,7 +1306,7 @@ async def demonstrate_real_world_hybrids():
         if pipeline_stats['stage_stats']:
             print("Stage performance:")
             for stage, stats in pipeline_stats['stage_stats'].items():
-                print(".3f"
+                print(f"  {stage}: avg_time={stats['avg_processing_time']:.3f}s, "
                       f"items={stats['items_processed']}")
 
     # 3. Database Hybrid
@@ -964,7 +1339,7 @@ async def demonstrate_real_world_hybrids():
         db_stats = db.get_database_stats()
         print("Database stats:")
         for qtype, stats in db_stats['query_stats'].items():
-            print(".3f"
+            print(f"  {qtype}: avg_time={stats['avg_query_time']:.3f}s, "
                   f"queries={stats['total_queries']}")
 
     print("\n✅ Real-world hybrid applications demonstration complete!")

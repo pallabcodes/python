@@ -22,6 +22,33 @@ from pathlib import Path
 class SubprocessSecurityExample:
     """
     Security best practices for subprocess operations.
+
+    When to Use:
+        - User input handling
+        - Secure command execution
+        - Path validation
+        - Environment security
+        - Resource limits
+
+    Real-World Examples:
+        - Web applications: Execute user commands safely
+        - System administration: Secure admin operations
+        - File processing: Safe file operations
+        - API endpoints: Secure command execution
+        - Automation: Secure automation scripts
+
+    Gotchas:
+        - shell=True is security risk
+        - Always validate user input
+        - Path traversal attacks
+        - Command injection vulnerabilities
+        - Environment variable attacks
+
+    Performance Notes:
+        - Input validation overhead minimal
+        - Security checks add minimal overhead
+        - Critical for production systems
+        - Balance security vs usability
     """
 
     @staticmethod
@@ -405,6 +432,148 @@ print("Loop completed")
                 except Exception as e:
                     print(f"   ❌ {description}: {e}")
 
+    def security_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Subprocess Security - User Command Execution API.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a user command execution API:
+        - Users submit commands to execute
+        - Execute commands on server
+        - Problem: Prevent command injection attacks
+        
+        THE PROBLEM WITHOUT SECURITY:
+        ==============================
+        - Command injection → system compromise
+        - Path traversal → unauthorized access
+        - Shell injection → arbitrary code execution
+        - Environment attacks → privilege escalation
+        - System vulnerable → security breach
+        
+        THE SOLUTION:
+        =============
+        Secure subprocess enables:
+        - Input validation → prevent injection
+        - Safe command execution → no shell injection
+        - Path validation → prevent traversal
+        - Environment security → prevent attacks
+        - Resource limits → prevent abuse
+        
+        WHEN TO USE SECURE SUBPROCESS:
+        ==============================
+        ✅ User command execution APIs
+        ✅ Web applications with commands
+        ✅ System administration tools
+        ✅ File processing with user input
+        ✅ Automation with user input
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: User Command Execution API")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - User command execution API")
+        print("  - Users submit commands to execute")
+        print("  - Execute commands on server")
+        print("  - Problem: Prevent command injection attacks")
+        print()
+        print("THE PROBLEM:")
+        print("  Without security:")
+        print("    ❌ Command injection → system compromise")
+        print("    ❌ Path traversal → unauthorized access")
+        print("    ❌ Shell injection → arbitrary code execution")
+        print("    ❌ Environment attacks → privilege escalation")
+        print()
+        print("THE SOLUTION:")
+        print("  With secure subprocess:")
+        print("    ✅ Input validation → prevent injection")
+        print("    ✅ Safe command execution → no shell injection")
+        print("    ✅ Path validation → prevent traversal")
+        print("    ✅ Environment security → prevent attacks")
+        print()
+        print("=" * 70)
+        print()
+
+        # Whitelist of allowed commands
+        ALLOWED_COMMANDS = {"echo", "date", "whoami"}
+
+        def execute_user_command(user_input: str) -> dict:
+            """Safely execute a user command."""
+            # Validate input
+            if not user_input or not user_input.strip():
+                return {"status": "error", "message": "Empty command"}
+
+            # Parse command (prevent shell injection)
+            parts = shlex.split(user_input)
+            if not parts:
+                return {"status": "error", "message": "Invalid command"}
+
+            command = parts[0]
+
+            # Whitelist check
+            if command not in ALLOWED_COMMANDS:
+                return {"status": "error", "message": f"Command '{command}' not allowed"}
+
+            # Execute safely (no shell=True)
+            try:
+                result = subprocess.run(
+                    parts,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False
+                )
+                return {
+                    "status": "success" if result.returncode == 0 else "error",
+                    "output": result.stdout,
+                    "error": result.stderr,
+                    "returncode": result.returncode
+                }
+            except subprocess.TimeoutExpired:
+                return {"status": "error", "message": "Command timeout"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+        print("Testing secure command execution...")
+        print()
+
+        # Test cases
+        test_commands = [
+            "echo hello",
+            "date",
+            "whoami",
+            "rm -rf /",  # Should be blocked
+            "echo hello; rm -rf /",  # Should be blocked
+        ]
+
+        for cmd in test_commands:
+            result = execute_user_command(cmd)
+            if result["status"] == "success":
+                print(f"  ✅ '{cmd}': {result['output'].strip()}")
+            else:
+                print(f"  ❌ '{cmd}': {result['message']}")
+
+        print()
+        print("  ✅ Secure subprocess prevented command injection!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE SECURE SUBPROCESS:")
+        print("   ✅ User command execution APIs")
+        print("   ✅ Web applications with commands")
+        print("   ✅ System administration tools")
+        print("   ✅ File processing with user input")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Prevents command injection")
+        print("   - Protects system security")
+        print("   - Prevents unauthorized access")
+        print("   - Production security")
+        print("=" * 70)
+        print()
+
 
 def main() -> None:
     """Run all security examples."""
@@ -422,6 +591,12 @@ def main() -> None:
         example.resource_limits()
         example.privilege_separation()
         example.comprehensive_security_demo()
+
+        # Real-world scenarios
+        print("\n" + "=" * 70)
+        print("RUNNING REAL-WORLD SCENARIOS")
+        print("=" * 70 + "\n")
+        example.security_real_world_example()
 
         print("\n" + "=" * 35)
         print("All security examples completed successfully!")

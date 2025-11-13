@@ -20,18 +20,71 @@ from typing import Any, Dict, List, Optional
 class ConcurrencyPatternsExample:
     """
     Examples of common concurrency patterns in asyncio.
+
+    This class demonstrates essential concurrency patterns used in production
+    async applications. These patterns solve common problems in distributed
+    systems, data processing, and concurrent programming.
+
+    When to Use:
+        - Building scalable async applications
+        - Processing large datasets concurrently
+        - Implementing fault-tolerant systems
+        - Managing resource pools and workers
+        - Building data processing pipelines
+
+    Real-World Examples:
+        - Web servers: Worker pools handle requests
+        - Data processing: Pipelines process data in stages
+        - API clients: Circuit breakers prevent cascade failures
+        - Background jobs: Producer-consumer patterns for job queues
+        - Distributed systems: Scatter-gather for parallel processing
+
+    Gotchas:
+        - Worker pools need proper shutdown (use sentinels)
+        - Queues need task_done() called for join() to work
+        - Circuit breakers need proper failure thresholds
+        - Timeouts cancel tasks; handle CancelledError
+        - Producer-consumer needs backpressure handling
+
+    Performance Notes:
+        - Patterns optimize for different scenarios
+        - Worker pools balance concurrency vs overhead
+        - Pipelines enable parallel stage processing
+        - Circuit breakers prevent resource waste
+        - Choose pattern based on workload characteristics
     """
 
     async def worker_task(self, worker_id: str, task_data: Any) -> Dict[str, Any]:
         """
         Simulate a worker task that processes data.
 
+        This is a helper method used by various concurrency patterns.
+        Simulates variable processing time to demonstrate real-world scenarios.
+
+        When to Use:
+            - Simulating work in concurrency patterns
+            - Testing pattern implementations
+            - Learning pattern behavior
+            - Benchmarking patterns
+
+        Real-World Examples:
+            - API requests: Variable response times
+            - Database queries: Variable query execution times
+            - File processing: Variable file sizes
+            - Data transformation: Variable data complexity
+
+        Gotchas:
+            - Processing time is randomized for realism
+            - Simulates I/O-bound work (uses asyncio.sleep)
+            - Can be replaced with actual work functions
+            - Results include metadata for analysis
+
         Args:
             worker_id: Identifier for the worker
             task_data: Data to process
 
         Returns:
-            Processing result
+            Dictionary with processing result and metadata
         """
         # Simulate variable processing time
         processing_time = random.uniform(0.1, 0.5)
@@ -50,7 +103,39 @@ class ConcurrencyPatternsExample:
     -- If you want to cancel remaining tasks on first failure, do so explicitly.
     """
     async def fan_out_fan_in_pattern(self) -> None:
-        """Demonstrate fan-out/fan-in pattern."""
+        """
+        Demonstrate fan-out/fan-in pattern.
+
+        Fan-out distributes work to multiple workers, fan-in collects results.
+        Results are processed as they complete (not in order).
+
+        When to Use:
+            - Processing independent work items
+            - When order doesn't matter
+            - Maximizing throughput
+            - Handling variable processing times
+            - Parallel data processing
+
+        Real-World Examples:
+            - Web scraping: Fetch multiple URLs concurrently
+            - API aggregation: Call multiple APIs in parallel
+            - Image processing: Process multiple images simultaneously
+            - Data import: Import multiple records concurrently
+            - Search: Query multiple search engines in parallel
+
+        Gotchas:
+            - Results arrive in completion order, not input order
+            - Use as_completed() for processing as they finish
+            - Exceptions in one task don't stop others
+            - Memory usage increases with number of tasks
+            - Consider semaphores to limit concurrency
+
+        Performance Notes:
+            - Processes items as they complete (low latency)
+            - Better throughput than sequential processing
+            - Optimal for I/O-bound independent work
+            - Can handle thousands of concurrent tasks
+        """
         print("=== Fan-Out/Fan-In Pattern ===")
 
         # Generate work items
@@ -100,7 +185,7 @@ class ConcurrencyPatternsExample:
         Default False -> await queue.put(...) (safe with maxsize).                
     """
 
-    print("=== Worker Pool Pattern ===")
+        print("=== Worker Pool Pattern ===")
 
     # Default sample items if none provided
     if work_items is None:
@@ -111,7 +196,7 @@ class ConcurrencyPatternsExample:
 
     async def worker_pool_worker(worker_id: str, queue: asyncio.Queue):
         """Worker coroutine: get items, process them, always call task_done()."""
-        while True:
+            while True:
             # Choose whether to use a timeout on queue.get() or wait indefinitely.
             try:
                 if timeout is None:
@@ -119,7 +204,7 @@ class ConcurrencyPatternsExample:
                 else:
                     # If timeout is set, we attempt to get an item with that timeout.
                     item = await asyncio.wait_for(queue.get(), timeout=timeout)
-            except asyncio.TimeoutError:
+                except asyncio.TimeoutError:
                 # Timeout occurred while waiting for an item.
                 # Behavior depends on exit_on_timeout flag.
                 if exit_on_timeout:
@@ -148,7 +233,7 @@ class ConcurrencyPatternsExample:
                 else:
                     print(f"🏭 {result['worker']} processed {result['input']}")
 
-            except Exception as e:
+                except Exception as e:
                 # Log and continue — always ensure task_done in finally
                 print(f"❌ {worker_id} error while processing {item}: {e}")
             finally:
@@ -184,24 +269,57 @@ class ConcurrencyPatternsExample:
     ]
 
     # suspends the caller (the coroutine that awaits it) until the queue’s internal counter unfinished_tasks becomes zero.
-    await work_queue.join()
+        await work_queue.join()
 
     # Enqueue one sentinel (None) per worker so they can shut down cleanly.
     # Use await queue.put to ensure no queue-full issues
-    for _ in range(num_workers):
+        for _ in range(num_workers):
         if use_put_nowait:
             work_queue.put_nowait(None)
         else:
             await work_queue.put(None)
 
     # Wait for all worker tasks to exit. Use return_exceptions=True if you prefer not to raise.
-    await asyncio.gather(*workers, return_exceptions=True)
+        await asyncio.gather(*workers, return_exceptions=True)
 
     print("✅ Worker pool completed all tasks!\n")
 
-   
+
     async def pipeline_pattern(self) -> None:
-        """Demonstrate pipeline pattern with multiple stages."""
+        """
+        Demonstrate pipeline pattern with multiple stages.
+
+        Data flows through multiple processing stages, with each stage
+        processing data concurrently. Enables parallel processing across stages.
+
+        When to Use:
+            - Multi-stage data processing
+            - ETL pipelines
+            - Data transformation workflows
+            - Streaming data processing
+            - Building data processing systems
+
+        Real-World Examples:
+            - ETL pipelines: Extract -> Transform -> Load
+            - Log processing: Parse -> Filter -> Analyze -> Store
+            - Image processing: Load -> Resize -> Compress -> Save
+            - Data pipelines: Fetch -> Process -> Aggregate -> Store
+            - Message processing: Receive -> Validate -> Route -> Send
+
+        Gotchas:
+            - Each stage runs concurrently
+            - Queues buffer data between stages
+            - Sentinel values (None) signal end of data
+            - Pipeline throughput limited by slowest stage
+            - Backpressure flows backward through pipeline
+
+        Performance Notes:
+            - Stages process in parallel (better than sequential)
+            - Memory usage depends on queue sizes
+            - Optimal for streaming data processing
+            - Can process infinite streams
+            - Balance stage parallelism vs memory
+        """
         print("=== Pipeline Pattern ===")
 
         async def stage1_producer(queue: asyncio.Queue) -> None:
@@ -258,7 +376,39 @@ class ConcurrencyPatternsExample:
         print()
 
     async def producer_consumer_pattern(self) -> None:
-        """Demonstrate producer-consumer pattern with bounded buffer."""
+        """
+        Demonstrate producer-consumer pattern with bounded buffer.
+
+        Producers generate items, consumers process them. Bounded buffer
+        prevents memory exhaustion and provides backpressure.
+
+        When to Use:
+            - Decoupling producers and consumers
+            - Handling variable production/consumption rates
+            - Implementing job queues
+            - Building event-driven systems
+            - Managing resource consumption
+
+        Real-World Examples:
+            - Job queues: Producers submit jobs, workers consume
+            - Log aggregation: Services produce logs, aggregator consumes
+            - Event processing: Event sources produce, processors consume
+            - Data streaming: Streams produce, processors consume
+            - Message queues: Publishers produce, subscribers consume
+
+        Gotchas:
+            - Bounded buffer prevents memory issues
+            - Producers wait when buffer is full (backpressure)
+            - Consumers need timeout or sentinel for shutdown
+            - task_done() must be called for join() to work
+            - Proper shutdown requires coordination
+
+        Performance Notes:
+            - Bounded buffer prevents memory exhaustion
+            - Backpressure slows producers when consumers lag
+            - Optimal balance of producers/consumers depends on workload
+            - Queue size affects latency vs memory tradeoff
+        """
         print("=== Producer-Consumer Pattern ===")
 
         async def producer(producer_id: str, queue: asyncio.Queue, max_items: int) -> None:
@@ -266,64 +416,97 @@ class ConcurrencyPatternsExample:
             for i in range(max_items):
                 item = f"{producer_id}_item_{i+1}"
 
-                # Wait if queue is full (simulate bounded buffer)
-                while queue.qsize() >= 3:  # Max buffer size of 3
-                    await asyncio.sleep(0.1)
-
+                # Bounded queue automatically handles backpressure
+                # await queue.put() will suspend if queue is full
                 await queue.put(item)
                 print(f"🛍️  {producer_id} produced: {item}")
                 await asyncio.sleep(random.uniform(0.1, 0.3))
 
+            print(f"🛍️  {producer_id} finished producing")
+
         async def consumer(consumer_id: str, queue: asyncio.Queue) -> None:
             """Consumer that processes items."""
             while True:
+                item = await queue.get()
                 try:
-                    # Get item with timeout
-                    item = await asyncio.wait_for(queue.get(), timeout=2.0)
+                    if item is None:  # Sentinel (poison pill)
+                        print(f"🛑 {consumer_id} received shutdown sentinel")
+                        queue.task_done()
+                        break
 
                     # Process item
                     await asyncio.sleep(random.uniform(0.2, 0.5))
                     print(f"🍽️  {consumer_id} consumed: {item}")
 
+                finally:
                     queue.task_done()
 
-                except asyncio.TimeoutError:
-                    print(f"🍽️  {consumer_id} timed out, finishing...")
-                    break
+        # Create bounded queue (maxsize=3) for proper backpressure
+        buffer = asyncio.Queue(maxsize=3)
+        num_producers = 2
+        num_consumers = 2
 
-        # Create shared queue
-        buffer = asyncio.Queue()
-
-        # Start producers and consumers
-        producers = [
-            asyncio.create_task(producer(f"Producer_{i+1}", buffer, 4))
-            for i in range(2)
-        ]
-
+        # Start consumers first so they're ready to process items
         consumers = [
             asyncio.create_task(consumer(f"Consumer_{i+1}", buffer))
-            for i in range(2)
+            for i in range(num_consumers)
         ]
 
-        # Wait for producers to complete
+        # Start producers
+        producers = [
+            asyncio.create_task(producer(f"Producer_{i+1}", buffer, 4))
+            for i in range(num_producers)
+        ]
+
+        # Wait for all producers to complete
         await asyncio.gather(*producers)
 
-        # Wait for queue to be empty
+        # Wait for queue to be empty (all items processed)
         await buffer.join()
 
-        # Cancel consumers (they'll timeout)
-        for consumer_task in consumers:
-            consumer_task.cancel()
+        # Send sentinel (None) for each consumer for graceful shutdown
+        for _ in range(num_consumers):
+            await buffer.put(None)
 
-        try:
-            await asyncio.gather(*consumers, return_exceptions=True)
-        except asyncio.CancelledError:
-            pass
+        # Wait for all consumers to finish gracefully
+        await asyncio.gather(*consumers)
 
         print("Producer-consumer pattern completed!\n")
 
     async def scatter_gather_pattern(self) -> None:
-        """Demonstrate scatter-gather pattern for parallel processing."""
+        """
+        Demonstrate scatter-gather pattern for parallel processing.
+
+        Scatter distributes work to multiple workers, gather collects results.
+        Useful for parallel processing with result aggregation.
+
+        When to Use:
+            - Parallel processing with result collection
+            - Distributed computing patterns
+            - Aggregating results from multiple sources
+            - Load balancing across workers
+            - Parallel algorithm implementation
+
+        Real-World Examples:
+            - Distributed queries: Query multiple shards, aggregate results
+            - Parallel search: Search multiple indices, combine results
+            - Data aggregation: Aggregate from multiple sources
+            - Map-reduce: Distribute map tasks, gather reduce results
+            - Distributed computing: Distribute computation, collect results
+
+        Gotchas:
+            - Work distribution affects load balancing
+            - Round-robin may not balance load evenly
+            - Results collected from all workers
+            - Worker failures need handling
+            - Consider dynamic work distribution
+
+        Performance Notes:
+            - Parallel processing improves throughput
+            - Load balancing affects performance
+            - Optimal worker count depends on workload
+            - Network overhead for distributed scenarios
+        """
         print("=== Scatter-Gather Pattern ===")
 
         async def scatter_phase(tasks: List[str], num_workers: int) -> List[asyncio.Queue]:
@@ -392,7 +575,39 @@ class ConcurrencyPatternsExample:
         print()
 
     async def circuit_breaker_pattern(self) -> None:
-        """Demonstrate circuit breaker pattern for fault tolerance."""
+        """
+        Demonstrate circuit breaker pattern for fault tolerance.
+
+        Circuit breaker prevents cascade failures by stopping calls to
+        failing services after a threshold, allowing recovery time.
+
+        When to Use:
+            - Calling external services that may fail
+            - Preventing cascade failures
+            - Implementing fault tolerance
+            - Protecting against service outages
+            - Building resilient distributed systems
+
+        Real-World Examples:
+            - API clients: Stop calling failing APIs
+            - Database connections: Stop connecting to failing DB
+            - Microservices: Stop calling failing services
+            - External integrations: Stop calling failing services
+            - Payment gateways: Stop calling failing payment APIs
+
+        Gotchas:
+            - Failure threshold must be tuned
+            - Recovery timeout allows service recovery
+            - Half-open state tests recovery
+            - Circuit breaker state affects all calls
+            - Monitor circuit breaker state
+
+        Performance Notes:
+            - Prevents wasted resources on failing services
+            - Fast failure (no waiting for timeouts)
+            - Recovery testing adds overhead
+            - Critical for distributed system resilience
+        """
         print("=== Circuit Breaker Pattern ===")
 
         class AsyncCircuitBreaker:
@@ -541,7 +756,40 @@ class ConcurrencyPatternsExample:
         print()
 
     async def concurrent_map_reduce(self) -> None:
-        """Demonstrate map-reduce pattern with concurrency."""
+        """
+        Demonstrate map-reduce pattern with concurrency.
+
+        Map phase processes data chunks in parallel, reduce phase aggregates
+        results. Classic pattern for parallel data processing.
+
+        When to Use:
+            - Processing large datasets
+            - Parallel data transformation
+            - Aggregating distributed data
+            - Implementing distributed algorithms
+            - Big data processing
+
+        Real-World Examples:
+            - Log analysis: Map logs, reduce to statistics
+            - Data aggregation: Map data, reduce to summaries
+            - Search: Map queries, reduce to results
+            - Analytics: Map events, reduce to metrics
+            - ETL: Map extract, reduce to load
+
+        Gotchas:
+            - Map and reduce phases are separate
+            - Shuffle phase groups data by key
+            - Reduce operates on grouped data
+            - Both phases can be parallelized
+            - Memory usage depends on data distribution
+
+        Performance Notes:
+            - Parallel map improves throughput
+            - Reduce parallelism depends on key distribution
+            - Optimal chunk size balances overhead vs parallelism
+            - Can process very large datasets
+            - Network overhead for distributed scenarios
+        """
         print("=== Concurrent Map-Reduce Pattern ===")
 
         async def map_function(data_chunk: List[int]) -> List[Tuple[str, int]]:
@@ -574,7 +822,7 @@ class ConcurrencyPatternsExample:
         # Map phase: process chunks concurrently
         print("📊 Map phase...")
         map_tasks = [map_function(chunk) for chunk in data_chunks]
-        map_results = await asyncio.gather(*map_results)
+        map_results = await asyncio.gather(*map_tasks)
 
         # Flatten and shuffle (group by key)
         from collections import defaultdict
@@ -596,6 +844,116 @@ class ConcurrencyPatternsExample:
 
         print()
 
+    async def fan_out_fan_in_real_world_example(self) -> None:
+        """
+        Real-World Scenario: Fan-Out/Fan-In - Parallel Data Processing.
+
+        REAL-WORLD SCENARIO:
+        ====================
+        You're building a data processing system:
+        - Process large dataset with independent operations
+        - Each operation takes variable time
+        - Problem: Need to process as fast as possible
+        
+        THE PROBLEM WITHOUT FAN-OUT/FAN-IN:
+        ====================================
+        - Process sequentially → slow
+        - Wait for all to complete → high latency
+        - No parallelization → waste
+        - System underutilized → inefficient
+        
+        THE SOLUTION:
+        =============
+        Fan-Out/Fan-In enables:
+        - Distribute work to multiple workers → parallel
+        - Process results as they complete → low latency
+        - Optimal resource utilization → efficient
+        - Handle variable processing times → robust
+        - Maximum throughput → fast
+        
+        WHEN TO USE FAN-OUT/FAN-IN:
+        ============================
+        ✅ Independent parallel operations
+        ✅ Variable processing times
+        ✅ Processing results as they complete
+        ✅ Maximizing throughput
+        ✅ Large dataset processing
+        """
+        print("=" * 70)
+        print("REAL-WORLD SCENARIO: Parallel Data Processing")
+        print("=" * 70)
+        print()
+        print("SITUATION:")
+        print("  - Data processing system")
+        print("  - Process large dataset with independent operations")
+        print("  - Each operation takes variable time")
+        print("  - Problem: Need to process as fast as possible")
+        print()
+        print("THE PROBLEM:")
+        print("  Without fan-out/fan-in:")
+        print("    ❌ Process sequentially → slow")
+        print("    ❌ Wait for all to complete → high latency")
+        print("    ❌ No parallelization → waste")
+        print("    ❌ System underutilized → inefficient")
+        print()
+        print("THE SOLUTION:")
+        print("  With fan-out/fan-in:")
+        print("    ✅ Distribute work to multiple workers → parallel")
+        print("    ✅ Process results as they complete → low latency")
+        print("    ✅ Optimal resource utilization → efficient")
+        print("    ✅ Handle variable processing times → robust")
+        print()
+        print("=" * 70)
+        print()
+
+        async def process_data_item(item_id: int) -> dict:
+            """Simulate processing a data item."""
+            processing_time = 0.05 + (item_id % 3) * 0.02  # Variable time
+            await asyncio.sleep(processing_time)
+            return {"item_id": item_id, "status": "processed", "time": processing_time}
+
+        items = list(range(1, 11))  # 10 items
+
+        print("Processing data items with fan-out/fan-in...")
+        print()
+
+        start_time = time.time()
+        # Fan-out: Create tasks for all items
+        tasks = [process_data_item(item_id) for item_id in items]
+        
+        # Fan-in: Process results as they complete
+        results = []
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            results.append(result)
+            print(f"  ✅ Item {result['item_id']}: Completed")
+
+        elapsed = time.time() - start_time
+
+        print()
+        print("Results:")
+        print(f"  Items processed: {len(results)}")
+        print(f"  Total time: {elapsed:.3f}s")
+        print(f"  Average time per item: {elapsed/len(results):.3f}s")
+        print("  ✅ Fan-out/fan-in enabled parallel processing!")
+        print()
+        print("=" * 70)
+        print("KEY TAKEAWAYS")
+        print("=" * 70)
+        print("1. WHEN TO USE FAN-OUT/FAN-IN:")
+        print("   ✅ Independent parallel operations")
+        print("   ✅ Variable processing times")
+        print("   ✅ Processing results as they complete")
+        print("   ✅ Maximizing throughput")
+        print()
+        print("2. WHY IT MATTERS:")
+        print("   - Processes results as they complete")
+        print("   - Optimal resource utilization")
+        print("   - Handles variable processing times")
+        print("   - Maximum throughput")
+        print("=" * 70)
+        print()
+
 
 async def main() -> None:
     """Run all concurrency pattern examples."""
@@ -612,6 +970,12 @@ async def main() -> None:
     await example.circuit_breaker_pattern()
     await example.timeout_cancellation_pattern()
     await example.concurrent_map_reduce()
+
+    # Real-world scenarios
+    print("\n" + "=" * 70)
+    print("RUNNING REAL-WORLD SCENARIOS")
+    print("=" * 70 + "\n")
+    await example.fan_out_fan_in_real_world_example()
 
     print("All concurrency pattern examples completed!")
 

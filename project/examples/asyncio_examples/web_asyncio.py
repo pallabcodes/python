@@ -32,10 +32,75 @@ except ImportError:
 class WebAsyncioExample:
     """
     Examples of async web servers and clients.
+
+    This class demonstrates how to build async web applications using asyncio
+    and aiohttp. Includes HTTP servers, clients, WebSockets, and REST APIs.
+
+    When to Use:
+        - Building async web servers
+        - Making concurrent HTTP requests
+        - Implementing WebSocket servers
+        - Building REST APIs with async handlers
+        - Handling high-concurrency web workloads
+
+    Real-World Examples:
+        - Web servers: Handle thousands of concurrent requests
+        - API clients: Make concurrent API calls
+        - Real-time apps: WebSocket for chat, notifications
+        - Microservices: Async REST APIs
+        - Data aggregation: Fetch from multiple sources concurrently
+
+    Gotchas:
+        - Always use async context managers for sessions
+        - Handle connection cleanup properly
+        - Use timeouts for all network operations
+        - WebSocket connections need proper cleanup
+        - Middleware order matters
+        - Handle exceptions in handlers
+
+    Performance Notes:
+        - Async web servers handle thousands of connections
+        - Concurrent requests improve throughput
+        - WebSockets enable real-time communication
+        - Proper connection pooling is critical
+        - Timeouts prevent resource exhaustion
     """
 
     async def simple_async_http_server(self) -> None:
-        """Demonstrate a simple async HTTP server."""
+        """
+        Demonstrate a simple async HTTP server.
+
+        Shows how to create an async HTTP server with aiohttp, including
+        handlers, middleware, and proper server lifecycle management.
+
+        When to Use:
+            - Building async web servers
+            - Creating REST APIs
+            - Implementing HTTP services
+            - Learning async web programming
+            - Building microservices
+
+        Real-World Examples:
+            - API servers: REST API endpoints
+            - Web services: HTTP-based services
+            - Microservices: Service endpoints
+            - Proxies: HTTP proxy servers
+            - Gateways: API gateways
+
+        Gotchas:
+            - Requires aiohttp library
+            - Use AppRunner for proper lifecycle
+            - Middleware runs in order
+            - Handlers must be async
+            - Proper cleanup on shutdown
+            - Handle exceptions in handlers
+
+        Performance Notes:
+            - Handles thousands of concurrent connections
+            - Non-blocking I/O maximizes throughput
+            - Middleware adds overhead
+            - Proper error handling prevents crashes
+        """
         print("=== Simple Async HTTP Server ===")
 
         if not HAS_AIOHTTP:
@@ -83,11 +148,11 @@ class WebAsyncioExample:
             try:
                 response = await handler(request)
                 duration = time.time() - start_time
-                print(".2f")
+                print(f"✅ {request.method} {request.path} - Completed in {duration:.2f}s")
                 return response
             except Exception as e:
                 duration = time.time() - start_time
-                print(".2f")
+                print(f"❌ {request.method} {request.path} - Failed in {duration:.2f}s: {e}")
                 raise
 
         # Create application
@@ -127,7 +192,40 @@ class WebAsyncioExample:
         print()
 
     async def async_http_client_operations(self) -> None:
-        """Demonstrate async HTTP client operations."""
+        """
+        Demonstrate async HTTP client operations.
+
+        Shows how to make concurrent HTTP requests using aiohttp with
+        proper session management, timeouts, and error handling.
+
+        When to Use:
+            - Making concurrent API calls
+            - Fetching data from multiple sources
+            - Aggregating data from APIs
+            - Building API clients
+            - Web scraping
+
+        Real-World Examples:
+            - API aggregation: Fetch from multiple APIs
+            - Data collection: Collect data from sources
+            - Web scraping: Scrape multiple pages
+            - Monitoring: Check multiple endpoints
+            - Data sync: Sync with external services
+
+        Gotchas:
+            - Always use async context manager for sessions
+            - Set appropriate timeouts
+            - Handle exceptions properly
+            - Close sessions explicitly
+            - Use ClientTimeout for timeouts
+            - Return exceptions with return_exceptions=True
+
+        Performance Notes:
+            - Concurrent requests improve throughput
+            - Session reuse reduces overhead
+            - Timeouts prevent hanging requests
+            - Proper error handling prevents crashes
+        """
         print("=== Async HTTP Client Operations ===")
 
         if not HAS_AIOHTTP:
@@ -193,7 +291,40 @@ class WebAsyncioExample:
         print()
 
     async def simple_async_tcp_server(self) -> None:
-        """Demonstrate a simple async TCP server."""
+        """
+        Demonstrate a simple async TCP server.
+
+        Shows how to create an async TCP server using asyncio streams
+        for custom protocols and real-time communication.
+
+        When to Use:
+            - Custom protocols over TCP
+            - Real-time communication
+            - Binary protocols
+            - Low-level networking
+            - Building custom servers
+
+        Real-World Examples:
+            - Chat servers: Real-time messaging
+            - Game servers: Low-latency communication
+            - Custom protocols: Proprietary protocols
+            - Data streaming: Stream data over TCP
+            - IoT devices: Device communication
+
+        Gotchas:
+            - Handle connection cleanup properly
+            - Use timeouts for reads
+            - Track active connections
+            - Handle disconnections gracefully
+            - Close writers properly
+            - Wait for closed connections
+
+        Performance Notes:
+            - Handles many concurrent connections
+            - Low overhead for custom protocols
+            - Timeouts prevent resource leaks
+            - Proper cleanup prevents connection leaks
+        """
         print("=== Simple Async TCP Server ===")
 
         async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -264,7 +395,40 @@ class WebAsyncioExample:
         print()
 
     async def async_websocket_server(self) -> None:
-        """Demonstrate async WebSocket server."""
+        """
+        Demonstrate async WebSocket server.
+
+        Shows how to create an async WebSocket server for real-time
+        bidirectional communication with proper connection management.
+
+        When to Use:
+            - Real-time communication
+            - Chat applications
+            - Live updates
+            - Notifications
+            - Collaborative features
+
+        Real-World Examples:
+            - Chat apps: Real-time messaging
+            - Live dashboards: Real-time data updates
+            - Notifications: Push notifications
+            - Collaborative editing: Real-time collaboration
+            - Gaming: Real-time game state
+
+        Gotchas:
+            - Track WebSocket connections
+            - Handle connection cleanup
+            - Parse JSON messages properly
+            - Handle different message types
+            - Clean up on disconnect
+            - Handle errors gracefully
+
+        Performance Notes:
+            - Efficient for real-time communication
+            - Low latency bidirectional communication
+            - Handles many concurrent connections
+            - Proper cleanup prevents leaks
+        """
         print("=== Async WebSocket Server ===")
 
         if not HAS_AIOHTTP:
@@ -381,7 +545,40 @@ class WebAsyncioExample:
         print()
 
     async def rest_api_pattern(self) -> None:
-        """Demonstrate REST API patterns with async handling."""
+        """
+        Demonstrate REST API patterns with async handling.
+
+        Shows how to build a complete REST API with CRUD operations,
+        batch operations, and proper async request handling.
+
+        When to Use:
+            - Building REST APIs
+            - Creating CRUD services
+            - Implementing microservices
+            - Building API backends
+            - Creating data services
+
+        Real-World Examples:
+            - REST APIs: Full CRUD operations
+            - Microservices: Service endpoints
+            - Data APIs: Data management APIs
+            - Backend services: Backend for frontend
+            - Integration APIs: External integrations
+
+        Gotchas:
+            - Validate input data
+            - Handle JSON parsing errors
+            - Return proper HTTP status codes
+            - Use async database operations
+            - Handle concurrent modifications
+            - Implement proper error responses
+
+        Performance Notes:
+            - Async handlers improve throughput
+            - Batch operations reduce overhead
+            - Proper validation prevents errors
+            - Concurrent requests handled efficiently
+        """
         print("=== REST API Pattern ===")
 
         if not HAS_AIOHTTP:
@@ -571,7 +768,40 @@ class WebAsyncioExample:
         print()
 
     async def concurrent_request_simulation(self) -> None:
-        """Demonstrate handling concurrent requests."""
+        """
+        Demonstrate handling concurrent requests.
+
+        Shows how to simulate multiple concurrent clients making
+        requests to demonstrate server concurrency capabilities.
+
+        When to Use:
+            - Testing server concurrency
+            - Load testing
+            - Demonstrating async benefits
+            - Benchmarking performance
+            - Stress testing
+
+        Real-World Examples:
+            - Load testing: Test server capacity
+            - Performance testing: Measure throughput
+            - Stress testing: Find breaking points
+            - Concurrency demos: Show async benefits
+            - Capacity planning: Plan server capacity
+
+        Gotchas:
+            - Simulate realistic client behavior
+            - Handle errors in simulation
+            - Measure actual performance
+            - Consider network conditions
+            - Account for think time
+            - Analyze results properly
+
+        Performance Notes:
+            - Demonstrates concurrent request handling
+            - Shows async server benefits
+            - Helps identify bottlenecks
+            - Useful for capacity planning
+        """
         print("=== Concurrent Request Simulation ===")
 
         if not HAS_AIOHTTP:
@@ -635,9 +865,9 @@ class WebAsyncioExample:
                 print(f"  Total clients: {num_clients}")
                 print(f"  Total requests: {total_requests}")
                 print(f"  Successful requests: {successful_requests}")
-                print(".1f")
-                print(".2f")
-                print(".1f")
+                print(f"  Success rate: {(successful_requests/total_requests*100):.1f}%")
+                print(f"  Total time: {total_time:.2f}s")
+                print(f"  Requests per second: {(total_requests/total_time):.1f}")
 
         await simulate_concurrent_clients()
         print()
