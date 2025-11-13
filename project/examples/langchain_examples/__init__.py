@@ -45,6 +45,9 @@ __all__ = [
     "function_calling",
     "callbacks",
     "finetuning",
-    "deployment"
+    "deployment",
+    "langgraph_persistence",
+    "advanced_memory",
+    "video_audio_processing"
 ]
 
