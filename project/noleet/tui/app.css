@@ -1,0 +1,288 @@
+/* NoLeet Textual App Styles */
+
+:root {
+    --primary-color: #2563eb;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --error-color: #ef4444;
+    --background-color: #0f172a;
+    --surface-color: #1e293b;
+    --text-color: #f1f5f9;
+    --text-secondary: #94a3b8;
+}
+
+NoLeetApp {
+    background: var(--background-color);
+    color: var(--text-color);
+}
+
+/* Header styling */
+Header {
+    background: var(--primary-color);
+    color: white;
+    text-align: center;
+    height: 3;
+    border-bottom: solid var(--primary-color);
+}
+
+/* Container styling */
+#main-container {
+    height: 100%;
+    width: 100%;
+}
+
+/* Screen visibility */
+.hidden {
+    display: none;
+}
+
+/* Button styling */
+Button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0 1;
+    margin: 0 0.5;
+    min-width: 12;
+}
+
+Button:hover {
+    background: #1d4ed8;
+}
+
+Button:focus {
+    background: #1e40af;
+    border: solid #3b82f6;
+}
+
+Button.-success {
+    background: var(--success-color);
+}
+
+Button.-warning {
+    background: var(--warning-color);
+}
+
+Button.-error {
+    background: var(--error-color);
+}
+
+/* Input styling */
+Input {
+    border: solid var(--secondary-color);
+    background: var(--surface-color);
+    color: var(--text-color);
+    padding: 0 1;
+    height: 3;
+}
+
+Input:focus {
+    border: solid var(--primary-color);
+}
+
+/* TextArea styling */
+TextArea {
+    border: solid var(--secondary-color);
+    background: var(--surface-color);
+    color: var(--text-color);
+    padding: 1;
+}
+
+TextArea:focus {
+    border: solid var(--primary-color);
+}
+
+/* List styling */
+ListView {
+    background: var(--surface-color);
+    border: solid var(--secondary-color);
+    height: 100%;
+}
+
+ListItem {
+    background: transparent;
+    color: var(--text-color);
+    padding: 0 1;
+    height: 3;
+}
+
+ListItem:hover {
+    background: #334155;
+}
+
+ListItem.-highlight {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Label styling */
+Label {
+    color: var(--text-color);
+    margin-bottom: 0.5;
+}
+
+/* Progress bar styling */
+ProgressBar {
+    height: 1;
+    background: var(--surface-color);
+}
+
+ProgressBar > Bar {
+    background: var(--primary-color);
+}
+
+/* Tab styling */
+Tabs {
+    background: var(--surface-color);
+    border-bottom: solid var(--secondary-color);
+}
+
+Tab {
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 0 2;
+    border-bottom: solid transparent;
+}
+
+Tab.-active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+/* Status indicators */
+.status-indicator {
+    width: 1;
+    height: 1;
+    border-radius: 50%;
+    margin-right: 1;
+}
+
+.status-success {
+    background: var(--success-color);
+}
+
+.status-warning {
+    background: var(--warning-color);
+}
+
+.status-error {
+    background: var(--error-color);
+}
+
+.status-info {
+    background: var(--primary-color);
+}
+
+/* Card-like containers */
+.card {
+    background: var(--surface-color);
+    border: solid var(--secondary-color);
+    border-radius: 4px;
+    padding: 1;
+    margin: 0.5 0;
+}
+
+.card-title {
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-bottom: 0.5;
+}
+
+/* Footer styling */
+Footer {
+    background: var(--surface-color);
+    color: var(--text-secondary);
+    height: 1;
+    border-top: solid var(--secondary-color);
+    text-align: center;
+}
+
+/* Loading spinner */
+.loading {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.spinner {
+    color: var(--primary-color);
+}
+
+/* Error messages */
+.error-message {
+    background: var(--error-color);
+    color: white;
+    padding: 1;
+    border-radius: 4px;
+    margin: 0.5 0;
+}
+
+/* Success messages */
+.success-message {
+    background: var(--success-color);
+    color: white;
+    padding: 1;
+    border-radius: 4px;
+    margin: 0.5 0;
+}
+
+/* Info messages */
+.info-message {
+    background: var(--primary-color);
+    color: white;
+    padding: 1;
+    border-radius: 4px;
+    margin: 0.5 0;
+}
+
+/* Responsive design */
+@media (max-width: 80) {
+    Button {
+        min-width: 8;
+    }
+
+    Input, TextArea {
+        width: 100%;
+    }
+}
+
+/* Dark theme adjustments */
+NoLeetApp.-dark {
+    --background-color: #0f172a;
+    --surface-color: #1e293b;
+    --text-color: #f1f5f9;
+    --text-secondary: #94a3b8;
+}
+
+/* Light theme (optional) */
+NoLeetApp.-light {
+    --background-color: #ffffff;
+    --surface-color: #f8fafc;
+    --text-color: #0f172a;
+    --text-secondary: #64748b;
+    --primary-color: #3b82f6;
+}
+
+/* Animation classes */
+.fade-in {
+    opacity: 0;
+    animation: fadeIn 0.3s ease-in forwards;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+.slide-in {
+    transform: translateX(-100%);
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+    to {
+        transform: translateX(0);
+    }
+}
