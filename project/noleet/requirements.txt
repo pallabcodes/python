@@ -5,7 +5,6 @@ openai>=1.0.0           # OpenAI API access
 ollama>=0.1.0          # Local LLM support
 sentence-transformers>=2.2.0  # Text embeddings
 numpy>=1.21.0          # Numerical operations
-scikit-learn>=1.0.0    # Similarity calculations
 cryptography>=3.4.0    # Secure credential storage
 python-dotenv>=0.19.0  # Environment variables
 
@@ -22,6 +21,12 @@ textual>=0.50.0        # Terminal UI framework
 PyPDF2>=3.0.0          # PDF parsing (optional)
 beautifulsoup4>=4.11.0 # HTML parsing (optional)
 requests>=2.28.0       # HTTP client (required for LeetCode API)
+
+# AI Framework dependencies (for AI-powered recommendations)
+pydantic>=2.0.0        # Data validation
+httpx>=0.24.0         # Async HTTP client
+aiofiles>=0.23.0      # Async file operations
+structlog>=23.0.0     # Structured logging
 
 # Development
 pytest>=7.0.0          # Testing
