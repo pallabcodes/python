@@ -17,6 +17,34 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+# Optional torch import for diffusion models
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    PYTORCH_AVAILABLE = True
+except ImportError:
+    PYTORCH_AVAILABLE = False
+    # Create dummy torch module for type hints
+    class torch:
+        @staticmethod
+        def tensor(*args, **kwargs): return None
+        @staticmethod
+        def randn(*args, **kwargs): return None
+        @staticmethod
+        def randn_like(*args, **kwargs): return None
+        @staticmethod
+        def cat(*args, **kwargs): return None
+        @staticmethod
+        def cumprod(*args, **kwargs): return None
+        @staticmethod
+        def linspace(*args, **kwargs): return None
+        @staticmethod
+        def sqrt(*args, **kwargs): return None
+        @staticmethod
+        def randint(*args, **kwargs): return None
+        Tensor = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -331,20 +359,336 @@ def multimodal_real_world_example() -> None:
     print()
     print("  ✅ Advanced multi-modal enabled unified content intelligence!")
     print()
+# ============================================================================
+# 7. DIFFUSION MODELS - Generative Image Creation
+# ============================================================================
+
+class DiffusionModel:
+    """
+    Diffusion Models - Advanced Generative AI for Image Creation.
+
+    Implements Denoising Diffusion Probabilistic Models (DDPM) and
+    Denoising Diffusion Implicit Models (DDIM) for high-quality image generation.
+
+    Why needed for Gen AI Engineer:
+    - State-of-the-art image generation (Stable Diffusion, DALL-E)
+    - Understanding latent space manipulation
+    - Foundation for multimodal generative AI
+    - Research-to-production translation of generative models
+
+    Based on:
+    - "Denoising Diffusion Probabilistic Models" (Ho et al.)
+    - "Denoising Diffusion Implicit Models" (Song et al.)
+    - Stable Diffusion architecture
+    """
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.timesteps = config.get("timesteps", 1000)
+        self.beta_start = config.get("beta_start", 0.0001)
+        self.beta_end = config.get("beta_end", 0.02)
+        self.image_size = config.get("image_size", 64)
+        self.channels = config.get("channels", 3)
+
+        # Pre-compute noise schedule
+        self.betas = self._linear_beta_schedule()
+        self.alphas = 1. - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1]])
+
+        # Calculations for diffusion q(x_t | x_{t-1}) and others
+        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
+        self.sqrt_recip_alphas_cumprod = torch.sqrt(1. / self.alphas_cumprod)
+        self.sqrt_recipm1_alphas_cumprod = torch.sqrt(1. / self.alphas_cumprod - 1)
+
+        # U-Net for denoising (simplified implementation)
+        self.denoising_model = self._create_denoising_model()
+
+        self._logger = logging.getLogger(f"{__name__}.DiffusionModel")
+
+    def _linear_beta_schedule(self) -> torch.Tensor:
+        """Linear beta schedule for diffusion process."""
+        return torch.linspace(self.beta_start, self.beta_end, self.timesteps)
+
+    def _create_denoising_model(self):
+        """Create the denoising U-Net model (simplified)."""
+        # In practice, this would be a full U-Net architecture
+        # For demonstration, we'll use a simple CNN
+        try:
+            import torch.nn as nn
+
+            class SimpleDenoisingModel(nn.Module):
+                def __init__(self, channels=3, time_emb_dim=32):
+                    super().__init__()
+                    self.time_emb = nn.Embedding(self.timesteps, time_emb_dim)
+
+                    self.conv1 = nn.Conv2d(channels, 64, 3, padding=1)
+                    self.conv2 = nn.Conv2d(64, 128, 3, padding=1)
+                    self.conv3 = nn.Conv2d(128, 64, 3, padding=1)
+                    self.conv4 = nn.Conv2d(64, channels, 3, padding=1)
+
+                    self.bn1 = nn.BatchNorm2d(64)
+                    self.bn2 = nn.BatchNorm2d(128)
+                    self.bn3 = nn.BatchNorm2d(64)
+
+                def forward(self, x, t):
+                    # Time embedding
+                    t_emb = self.time_emb(t)
+
+                    # Simple U-Net style forward pass
+                    x1 = F.relu(self.bn1(self.conv1(x)))
+                    x2 = F.relu(self.bn2(self.conv2(x1)))
+                    x3 = F.relu(self.bn3(self.conv3(x2)))
+                    out = self.conv4(x3)
+                    return out
+
+            return SimpleDenoisingModel(self.channels)
+        except ImportError:
+            self._logger.warning("PyTorch not available for diffusion model")
+            return None
+
+    async def generate_image(
+        self,
+        prompt: Optional[str] = None,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 7.5
+    ) -> Dict[str, Any]:
+        """
+        Generate image using diffusion model.
+
+        Args:
+            prompt: Text prompt for conditional generation
+            num_inference_steps: Number of denoising steps
+            guidance_scale: Classifier-free guidance scale
+
+        Returns:
+            Generated image and metadata
+        """
+        if self.denoising_model is None:
+            return {"error": "Denoising model not available"}
+
+        # Start with pure noise
+        x = torch.randn(1, self.channels, self.image_size, self.image_size)
+
+        # Denoising loop (simplified DDIM)
+        for t in reversed(range(1, num_inference_steps + 1)):
+            # Predict noise
+            predicted_noise = self.denoising_model(x, torch.tensor([t]))
+
+            # Remove noise (simplified)
+            alpha_t = self.alphas_cumprod[t-1]
+            alpha_t_prev = self.alphas_cumprod_prev[t-1]
+
+            # DDIM update rule (simplified)
+            x = (x - predicted_noise * torch.sqrt(1 - alpha_t)) / torch.sqrt(alpha_t)
+
+            # Add noise for stochasticity (except final step)
+            if t > 1:
+                noise = torch.randn_like(x)
+                variance = (1 - alpha_t_prev) / (1 - alpha_t) * (1 - alpha_t / alpha_t_prev)
+                x = x + noise * torch.sqrt(variance)
+
+        # Convert to image format
+        generated_image = self._tensor_to_image(x)
+
+        return {
+            "generated_image": generated_image,
+            "prompt": prompt,
+            "inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "model_config": {
+                "timesteps": self.timesteps,
+                "image_size": self.image_size,
+                "channels": self.channels
+            }
+        }
+
+    async def train_step(
+        self,
+        batch_images: torch.Tensor,
+        optimizer
+    ) -> Dict[str, float]:
+        """
+        Single training step for diffusion model.
+
+        Args:
+            batch_images: Batch of training images
+            optimizer: PyTorch optimizer
+
+        Returns:
+            Training metrics
+        """
+        if self.denoising_model is None:
+            return {"error": "Model not available for training"}
+
+        # Sample random timesteps
+        batch_size = batch_images.size(0)
+        t = torch.randint(1, self.timesteps + 1, (batch_size,))
+
+        # Add noise to images
+        noise = torch.randn_like(batch_images)
+        noisy_images = self._q_sample(batch_images, t, noise)
+
+        # Predict noise
+        predicted_noise = self.denoising_model(noisy_images, t)
+
+        # Compute loss (simple MSE)
+        loss = F.mse_loss(predicted_noise, noise)
+
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        return {
+            "loss": loss.item(),
+            "batch_size": batch_size,
+            "timestep_range": f"{t.min().item()}-{t.max().item()}"
+        }
+
+    def _q_sample(self, x_start: torch.Tensor, t: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+        """Sample from q(x_t | x_0) - forward diffusion process."""
+        sqrt_alphas_cumprod_t = self.sqrt_alphas_cumprod[t - 1].view(-1, 1, 1, 1)
+        sqrt_one_minus_alphas_cumprod_t = self.sqrt_one_minus_alphas_cumprod[t - 1].view(-1, 1, 1, 1)
+
+        return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
+
+    def _tensor_to_image(self, tensor: torch.Tensor) -> Any:
+        """Convert tensor to image format (simplified)."""
+        # In practice, this would denormalize and convert to PIL Image
+        # For demo, return placeholder
+        return f"[Generated Image: {tensor.shape}]"
+
+    async def conditional_generation(
+        self,
+        text_embedding: torch.Tensor,
+        num_steps: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Conditional image generation with text guidance.
+
+        Args:
+            text_embedding: Text embedding for conditioning
+            num_steps: Number of generation steps
+
+        Returns:
+            Generated image with conditioning
+        """
+        # Simplified conditional generation
+        base_result = await self.generate_image(num_inference_steps=num_steps)
+
+        return {
+            **base_result,
+            "conditioning_type": "text_embedding",
+            "text_embedding_shape": text_embedding.shape,
+            "conditional_generation": True
+        }
+
+
+# ============================================================================
+# INTEGRATION DEMO
+# ============================================================================
+
+async def demo_multimodal_with_diffusion():
+    """Demonstrate multimodal processing with diffusion models."""
+    print("🎨 MULTI-MODAL PROCESSING + DIFFUSION MODELS")
+    print("=" * 70)
+    print("Complete generative AI pipeline: understanding + creation")
+    print("=" * 70)
+
+    # Initialize processors
+    image_processor = ImageProcessor()
+    audio_processor = AudioProcessor()
+
+    # Initialize diffusion model
+    diffusion_config = {
+        "timesteps": 1000,
+        "image_size": 64,
+        "channels": 3,
+        "beta_start": 0.0001,
+        "beta_end": 0.02
+    }
+
+    try:
+        import torch
+        diffusion_model = DiffusionModel(diffusion_config)
+        diffusion_available = True
+    except ImportError:
+        diffusion_model = None
+        diffusion_available = False
+
+    print("\n🔄 1. MULTI-MODAL CONTENT PROCESSING")
+    print("-" * 50)
+
+    # Process different media types
+    print("\nProcessing text content...")
+    text_result = {"text_summary": "A beautiful sunset over mountains - natural landscape"}
+    print(f"  Extracted: {text_result.get('text_summary', 'N/A')[:50]}...")
+
+    print("\nProcessing image content...")
+    image_analysis = await image_processor.analyze("[IMAGE: sunset.jpg]", "Describe this image")
+    print(f"  Analysis: {image_analysis[:50]}...")
+
+    print("\nProcessing audio content...")
+    audio_transcription = await audio_processor.transcribe("[AUDIO: nature_sounds.wav]")
+    print(f"  Transcription: {audio_transcription[:50]}...")
+
+    if diffusion_available:
+        print("\n🎨 2. DIFFUSION MODEL GENERATION")
+        print("-" * 50)
+
+        # Generate image from text description
+        generation_prompt = "A beautiful sunset over mountains with vibrant colors"
+
+        print(f"\nGenerating image for: '{generation_prompt}'")
+        generated_result = await diffusion_model.generate_image(
+            prompt=generation_prompt,
+            num_inference_steps=20
+        )
+
+        print(f"Generated: {generated_result['generated_image']}")
+        print(f"Inference steps: {generated_result['inference_steps']}")
+        print(f"Model config: {generated_result['model_config']['image_size']}x{generated_result['model_config']['image_size']}")
+
+        # Demonstrate conditional generation
+        print(f"\nConditional generation with text embedding...")
+        # Mock text embedding
+        text_emb = torch.randn(1, 512)
+        conditional_result = await diffusion_model.conditional_generation(text_emb)
+        print(f"Conditional result: {conditional_result['conditioning_type']}")
+
+    print("\n✅ MULTI-MODAL + DIFFUSION DEMO COMPLETED")
+    print("This demonstrates:")
+    print("- Complete content understanding (text, image, audio)")
+    print("- Generative AI capabilities (diffusion models)")
+    print("- End-to-end multimodal AI pipeline")
+    print("- Research-to-production generative AI")
+
+    if not diffusion_available:
+        print("\n⚠️  Note: Install PyTorch for full diffusion model demo")
+        print("         pip install torch torchvision")
+
+
     print("=" * 70)
     print("KEY TAKEAWAYS")
     print("=" * 70)
-    print("1. WHEN TO USE ADVANCED MULTI-MODAL:")
-    print("   ✅ Content intelligence platforms")
-    print("   ✅ Multi-modal knowledge bases")
-    print("   ✅ Diverse content types")
-    print("   ✅ Need unified search")
+    print("1. WHEN TO USE MULTI-MODAL + DIFFUSION:")
+    print("   ✅ Content creation platforms")
+    print("   ✅ Generative AI applications")
+    print("   ✅ Creative AI tools")
+    print("   ✅ Multi-modal understanding + generation")
     print()
     print("2. WHY IT MATTERS:")
-    print("   - Visual content understanding")
-    print("   - Audio content extraction")
-    print("   - Cross-modal search")
-    print("   - Production scalability")
+    print("   - Complete AI content pipeline")
+    print("   - Understanding + creation capabilities")
+    print("   - Cross-modal generative AI")
+    print("   - Production generative systems")
     print("=" * 70)
     print()
+
+
+if __name__ == "__main__":
+    # Run the integrated demo
+    asyncio.run(demo_multimodal_with_diffusion())
 

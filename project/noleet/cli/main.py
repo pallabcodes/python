@@ -1442,57 +1442,61 @@ def main() -> None:
         help="Output directory for scaffolded project"
     )
 
-    # Review command
-    review_parser = subparsers.add_parser("review", help="Get AI-powered code review for DSA implementation (advanced feature)")
-    review_parser.add_argument("code", help="Code to review (as string or file path)")
-    review_parser.add_argument("--file", help="Read code from file instead of command line")
-    review_parser.add_argument("--project", help="Related project ID for context")
-    review_parser.add_argument("--topics", nargs="+", help="DSA topics covered (e.g., dynamic_programming arrays)")
-    review_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
-                              default="intermediate", help="Your skill level")
-    review_parser.add_argument("--algorithm", help="Expected algorithm type for validation")
+    # Advanced features (only available when enabled)
+    enable_advanced = os.getenv('NOLEET_ENABLE_ADVANCED', 'false').lower() == 'true'
 
-    # Tutor commands
-    tutor_parser = subparsers.add_parser("tutor", help="Interactive tutoring for DSA projects (advanced feature)")
-    tutor_subparsers = tutor_parser.add_subparsers(dest="tutor_command", help="Tutor subcommands")
+    if enable_advanced:
+        # Review command
+        review_parser = subparsers.add_parser("review", help="Get AI-powered code review for DSA implementation")
+        review_parser.add_argument("code", help="Code to review (as string or file path)")
+        review_parser.add_argument("--file", help="Read code from file instead of command line")
+        review_parser.add_argument("--project", help="Related project ID for context")
+        review_parser.add_argument("--topics", nargs="+", help="DSA topics covered (e.g., dynamic_programming arrays)")
+        review_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
+                                  default="intermediate", help="Your skill level")
+        review_parser.add_argument("--algorithm", help="Expected algorithm type for validation")
 
-    # Start tutoring session
-    start_parser = tutor_subparsers.add_parser("start", help="Start a tutoring session")
-    start_parser.add_argument("project_id", help="Project ID to tutor for")
-    start_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
-                             default="intermediate", help="Your skill level")
+        # Tutor commands
+        tutor_parser = subparsers.add_parser("tutor", help="Interactive tutoring for DSA projects")
+        tutor_subparsers = tutor_parser.add_subparsers(dest="tutor_command", help="Tutor subcommands")
 
-    # Ask questions
-    ask_parser = tutor_subparsers.add_parser("ask", help="Ask a question about your implementation")
-    ask_parser.add_argument("question", help="Your question about DSA or implementation")
-    ask_parser.add_argument("--code", help="Include code snippet for context")
-    ask_parser.add_argument("--file", help="Current file you're working on")
+        # Start tutoring session
+        start_parser = tutor_subparsers.add_parser("start", help="Start a tutoring session")
+        start_parser.add_argument("project_id", help="Project ID to tutor for")
+        start_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
+                                 default="intermediate", help="Your skill level")
 
-    # Code review
-    review_parser = tutor_subparsers.add_parser("review", help="Get code review and explanations")
-    review_parser.add_argument("--code", help="Code to review")
-    review_parser.add_argument("--file", help="File containing code to review")
+        # Ask questions
+        ask_parser = tutor_subparsers.add_parser("ask", help="Ask a question about your implementation")
+        ask_parser.add_argument("question", help="Your question about DSA or implementation")
+        ask_parser.add_argument("--code", help="Include code snippet for context")
+        ask_parser.add_argument("--file", help="Current file you're working on")
 
-    # Debug help
-    debug_parser = tutor_subparsers.add_parser("debug", help="Get debugging assistance")
-    debug_parser.add_argument("--error", help="Error message you're seeing")
-    debug_parser.add_argument("--code", help="Code that's causing issues")
+        # Code review
+        review_parser = tutor_subparsers.add_parser("review", help="Get code review and explanations")
+        review_parser.add_argument("--code", help="Code to review")
+        review_parser.add_argument("--file", help="File containing code to review")
 
-    # Explain concepts
-    explain_parser = tutor_subparsers.add_parser("explain", help="Explain DSA concepts")
-    explain_parser.add_argument("concept", help="DSA concept to explain")
-    explain_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
-                               default="intermediate", help="Explanation depth")
+        # Debug help
+        debug_parser = tutor_subparsers.add_parser("debug", help="Get debugging assistance")
+        debug_parser.add_argument("--error", help="Error message you're seeing")
+        debug_parser.add_argument("--code", help="Code that's causing issues")
 
-    # Implementation guidance
-    guide_parser = tutor_subparsers.add_parser("guide", help="Get implementation guidance")
-    guide_parser.add_argument("step", help="What step are you working on?")
-    guide_parser.add_argument("--code", help="Current code state")
+        # Explain concepts
+        explain_parser = tutor_subparsers.add_parser("explain", help="Explain DSA concepts")
+        explain_parser.add_argument("concept", help="DSA concept to explain")
+        explain_parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"],
+                                   default="intermediate", help="Explanation depth")
 
-    # Learning path
-    path_parser = tutor_subparsers.add_parser("path", help="Get learning path suggestions")
+        # Implementation guidance
+        guide_parser = tutor_subparsers.add_parser("guide", help="Get implementation guidance")
+        guide_parser.add_argument("step", help="What step are you working on?")
+        guide_parser.add_argument("--code", help="Current code state")
 
-    # End session
+        # Learning path
+        path_parser = tutor_subparsers.add_parser("path", help="Get learning path suggestions")
+
+        # End session
     end_parser = tutor_subparsers.add_parser("end", help="End current tutoring session")
 
     # Community commands
