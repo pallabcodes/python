@@ -33,7 +33,7 @@ class MockLLM(LLMBase):
         """Mock LLM is always available."""
         return True
 
-    def generate(self, prompt: str, **kwargs) -> str:
+    def _generate_response(self, prompt: str, **kwargs) -> str:
         """
         Generate mock response based on prompt content.
 

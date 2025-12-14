@@ -1,0 +1,101 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: noleet-ingress
+  namespace: noleet
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/upstream-fail-timeout: "10"
+    nginx.ingress.kubernetes.io/upstream-max-fails: "3"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.github.com https://api.openai.com;";
+spec:
+  tls:
+  - hosts:
+    - api.noleet.ai
+    - app.noleet.ai
+    secretName: noleet-tls
+  rules:
+  - host: api.noleet.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-app
+            port:
+              number: 80
+  - host: app.noleet.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-app
+            port:
+              number: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: noleet-monitoring-ingress
+  namespace: noleet
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'NoLeet Monitoring'
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - monitoring.noleet.ai
+    secretName: noleet-monitoring-tls
+  rules:
+  - host: monitoring.noleet.ai
+    http:
+      paths:
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-grafana
+            port:
+              number: 3000
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-prometheus
+            port:
+              number: 9090
+      - path: /alertmanager
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-alertmanager
+            port:
+              number: 9093
+      - path: /kibana
+        pathType: Prefix
+        backend:
+          service:
+            name: noleet-kibana
+            port:
+              number: 5601

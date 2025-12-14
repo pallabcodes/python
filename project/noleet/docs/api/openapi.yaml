@@ -1,0 +1,1211 @@
+openapi: 3.0.3
+info:
+  title: NoLeet API
+  description: |
+    AI-powered coding project recommendation system API.
+
+    NoLeet uses advanced AI agents to analyze coding problems, recommend personalized projects,
+    and provide intelligent learning paths for developers.
+
+    ## Features
+    - **AI-Powered Recommendations**: LLM-driven project suggestions based on user profile
+    - **Semantic Search**: Intelligent matching using embeddings and natural language processing
+    - **Multi-Agent System**: Orchestrated AI agents for complex analysis tasks
+    - **Real-time Collaboration**: Live agent status and progress tracking
+    - **Research Integration**: Academic paper analysis and algorithm extraction
+
+    ## Authentication
+    All API endpoints require authentication using JWT tokens.
+
+    ```bash
+    # Get access token
+    curl -X POST "https://api.noleet.ai/auth/login" \
+      -H "Content-Type: application/json" \
+      -d '{"username":"user","password":"pass"}'
+
+    # Use token in requests
+    curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+         "https://api.noleet.ai/projects/recommend"
+    ```
+
+    ## Rate Limiting
+    - **Authenticated users**: 1000 requests/hour
+    - **Anonymous users**: 100 requests/hour
+    - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+  version: 1.0.0
+  contact:
+    name: NoLeet Team
+    email: team@noleet.ai
+    url: https://noleet.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.noleet.ai
+    description: Production server
+  - url: https://staging-api.noleet.ai
+    description: Staging server
+  - url: http://localhost:8000
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Authentication
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return JWT token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "john_doe"
+                password:
+                  type: string
+                  format: password
+                  example: "secure_password"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                  token_type:
+                    type: string
+                    example: "bearer"
+                  expires_in:
+                    type: integer
+                    example: 3600
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      summary: User registration
+      description: Register new user account
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "john_doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "secure_password"
+                full_name:
+                  type: string
+                  example: "John Doe"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Projects
+  /projects:
+    get:
+      summary: List projects
+      description: Get paginated list of projects with filtering
+      tags: [Projects]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+            description: "Search query for semantic matching"
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  total:
+                    type: integer
+                    example: 150
+                  page:
+                    type: integer
+                    example: 1
+                  pages:
+                    type: integer
+                    example: 8
+                  limit:
+                    type: integer
+                    example: 20
+
+    post:
+      summary: Create project
+      description: Create a new learning project
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - difficulty
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                  example: "Binary Tree Algorithms"
+                description:
+                  type: string
+                  example: "Comprehensive guide to binary tree algorithms"
+                content:
+                  type: string
+                  description: "Full project content in Markdown"
+                difficulty:
+                  type: string
+                  enum: [easy, medium, hard]
+                  example: "medium"
+                category_id:
+                  type: integer
+                  example: 1
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["algorithms", "data-structures", "trees"]
+                questions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                      content:
+                        type: string
+                      difficulty:
+                        type: string
+                        enum: [easy, medium, hard]
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Validation error
+        '403':
+          description: Insufficient permissions
+
+  /projects/recommend:
+    get:
+      summary: Get project recommendations
+      description: |
+        Get AI-powered project recommendations based on user profile and preferences.
+
+        Uses multiple AI agents to analyze:
+        - User interaction history
+        - Skill assessment
+        - Learning goals
+        - Topic preferences
+        - Difficulty progression
+      tags: [Projects, AI]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: include_explanations
+          in: query
+          schema:
+            type: boolean
+            default: true
+            description: "Include AI reasoning for recommendations"
+      responses:
+        '200':
+          description: Recommendations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        project:
+                          $ref: '#/components/schemas/Project'
+                        score:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                          example: 0.95
+                        reasoning:
+                          type: string
+                          example: "Based on your interest in algorithms and current intermediate skill level"
+                        agent_used:
+                          type: string
+                          example: "project_recommendation_agent"
+                  agent_status:
+                    type: object
+                    properties:
+                      total_agents:
+                        type: integer
+                        example: 3
+                      completed_agents:
+                        type: integer
+                        example: 3
+                      execution_time:
+                        type: number
+                        example: 2.5
+
+  /projects/{project_id}:
+    get:
+      summary: Get project details
+      description: Get detailed information about a specific project
+      tags: [Projects]
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Project details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+
+    put:
+      summary: Update project
+      description: Update project information (author only)
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: string
+                content:
+                  type: string
+                difficulty:
+                  type: string
+                  enum: [easy, medium, hard]
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '403':
+          description: Not authorized to update this project
+        '404':
+          description: Project not found
+
+  # Questions
+  /questions:
+    get:
+      summary: List questions
+      description: Get paginated list of coding questions
+      tags: [Questions]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, flagged]
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [leetcode, manual]
+      responses:
+        '200':
+          description: Questions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pages:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /questions/analyze:
+    post:
+      summary: Analyze question
+      description: |
+        Use AI agents to analyze a coding question for:
+        - Difficulty assessment
+        - Topic categorization
+        - Quality scoring
+        - Sentiment analysis
+      tags: [Questions, AI]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                  example: "Two Sum"
+                content:
+                  type: string
+                  example: "Given an array of integers, return indices of two numbers that add up to target."
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["array", "hash-table"]
+      responses:
+        '200':
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    type: object
+                    properties:
+                      difficulty:
+                        type: string
+                        enum: [easy, medium, hard]
+                        example: "easy"
+                      topics:
+                        type: array
+                        items:
+                          type: string
+                        example: ["Arrays", "Hash Tables"]
+                      quality_score:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                        example: 0.85
+                      sentiment:
+                        type: string
+                        enum: [positive, neutral, negative]
+                        example: "neutral"
+                      reasoning:
+                        type: string
+                        example: "Standard problem with clear requirements and optimal O(n) solution"
+                  agent_status:
+                    type: object
+                    properties:
+                      total_agents:
+                        type: integer
+                        example: 2
+                      completed_agents:
+                        type: integer
+                        example: 2
+                      execution_time:
+                        type: number
+                        example: 1.8
+
+  # Agents
+  /agents:
+    get:
+      summary: List agents
+      description: Get information about available AI agents
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Agents retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  total:
+                    type: integer
+
+  /agents/{agent_name}/status:
+    get:
+      summary: Get agent status
+      description: Get real-time status of a specific AI agent
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentStatus'
+
+  # User Profile
+  /users/profile:
+    get:
+      summary: Get user profile
+      description: Get current user's profile and preferences
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    put:
+      summary: Update user profile
+      description: Update user profile and preferences
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  example: "John Doe"
+                preferences:
+                  type: object
+                  properties:
+                    difficulty_preference:
+                      type: string
+                      enum: [easy, medium, hard]
+                    topics_of_interest:
+                      type: array
+                      items:
+                        type: string
+                    learning_goals:
+                      type: string
+                profile_data:
+                  type: object
+                  description: "Additional profile information from AI analysis"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Research
+  /research/papers:
+    get:
+      summary: Search research papers
+      description: Search academic papers using semantic matching
+      tags: [Research]
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            description: "Search query for paper content"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: year_from
+          in: query
+          schema:
+            type: integer
+        - name: year_to
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Papers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  papers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ResearchPaper'
+                  total:
+                    type: integer
+
+  /research/analyze-paper:
+    post:
+      summary: Analyze research paper
+      description: Use AI to analyze academic paper and extract algorithms
+      tags: [Research, AI]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paper_url
+              properties:
+                paper_url:
+                  type: string
+                  format: uri
+                  example: "https://arxiv.org/abs/2001.12345"
+                focus_areas:
+                  type: array
+                  items:
+                    type: string
+                    enum: [algorithms, data-structures, complexity, applications]
+                  example: ["algorithms", "complexity"]
+      responses:
+        '200':
+          description: Paper analysis completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    type: object
+                    properties:
+                      summary:
+                        type: string
+                        example: "Novel algorithm for graph traversal with O(log n) time complexity"
+                      algorithms:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "Optimized Dijkstra"
+                            description:
+                              type: string
+                            complexity:
+                              type: string
+                              example: "O((V + E) log V)"
+                            pseudocode:
+                              type: string
+                      key_contributions:
+                        type: array
+                        items:
+                          type: string
+                      related_topics:
+                        type: array
+                        items:
+                          type: string
+                          example: ["Graph Theory", "Optimization"]
+                  agent_status:
+                    $ref: '#/components/schemas/AgentRunStatus'
+
+  # Health Check
+  /health:
+    get:
+      summary: Health check
+      description: Check service health and dependencies
+      tags: [System]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "healthy"
+                      redis:
+                        type: string
+                        example: "healthy"
+                      llm_api:
+                        type: string
+                        example: "healthy"
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Expose application metrics for monitoring
+      tags: [System]
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP noleet_http_requests_total Total HTTP requests
+                  # TYPE noleet_http_requests_total counter
+                  noleet_http_requests_total{method="GET",endpoint="/projects",status="200"} 1250
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "ValidationError"
+        message:
+          type: string
+          example: "Invalid input data"
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - error
+        - message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        full_name:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          enum: [admin, user, moderator]
+          example: "user"
+        is_active:
+          type: boolean
+          example: true
+        is_verified:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+        preferences:
+          type: object
+          properties:
+            difficulty_preference:
+              type: string
+              enum: [easy, medium, hard]
+            topics_of_interest:
+              type: array
+              items:
+                type: string
+      required:
+        - id
+        - username
+        - email
+        - role
+        - is_active
+        - is_verified
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Binary Tree Algorithms"
+        slug:
+          type: string
+          example: "binary-tree-algorithms"
+        description:
+          type: string
+          example: "Comprehensive guide to binary tree algorithms and implementations"
+        content:
+          type: string
+          description: "Full project content in Markdown format"
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          example: "medium"
+        status:
+          type: string
+          enum: [draft, published, archived]
+          example: "published"
+        author:
+          $ref: '#/components/schemas/User'
+        category:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            slug:
+              type: string
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["algorithms", "data-structures", "trees"]
+        metadata:
+          type: object
+          additionalProperties: true
+        view_count:
+          type: integer
+          example: 1250
+        like_count:
+          type: integer
+          example: 89
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - slug
+        - difficulty
+        - status
+        - author
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Two Sum"
+        content:
+          type: string
+          example: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target."
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          example: "easy"
+        status:
+          type: string
+          enum: [pending, approved, rejected, flagged]
+          example: "approved"
+        source:
+          type: string
+          enum: [leetcode, manual]
+          example: "leetcode"
+        external_id:
+          type: string
+          example: "1"
+        url:
+          type: string
+          format: uri
+          example: "https://leetcode.com/problems/two-sum/"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["array", "hash-table"]
+        sentiment_score:
+          type: number
+          minimum: -1
+          maximum: 1
+          example: 0.2
+        quality_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.85
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        approved_at:
+          type: string
+          format: date-time
+        approved_by:
+          $ref: '#/components/schemas/User'
+      required:
+        - id
+        - title
+        - difficulty
+        - status
+        - source
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "project_recommendation_agent"
+        type:
+          type: string
+          enum: [recommendation, analysis, research]
+          example: "recommendation"
+        status:
+          type: string
+          enum: [idle, running, completed, failed]
+          example: "idle"
+        config:
+          type: object
+          properties:
+            model:
+              type: string
+              example: "gpt-4"
+            temperature:
+              type: number
+              example: 0.7
+            max_tokens:
+              type: integer
+              example: 1000
+        last_run_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - type
+        - status
+
+    AgentStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "project_recommendation_agent"
+        status:
+          type: string
+          enum: [idle, running, completed, failed]
+          example: "running"
+        current_task:
+          type: string
+          example: "Analyzing user preferences"
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 65
+        last_run_at:
+          type: string
+          format: date-time
+        average_execution_time:
+          type: number
+          example: 2.3
+        success_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.95
+
+    AgentRunStatus:
+      type: object
+      properties:
+        run_id:
+          type: string
+          example: "run_12345"
+        status:
+          type: string
+          enum: [idle, running, completed, failed]
+          example: "completed"
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 100
+        execution_time:
+          type: number
+          example: 2.5
+        agents_used:
+          type: integer
+          example: 3
+        errors:
+          type: array
+          items:
+            type: string
+
+    ResearchPaper:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "A Novel Approach to Graph Algorithms"
+        abstract:
+          type: string
+          example: "This paper presents innovative algorithms for graph traversal..."
+        authors:
+          type: array
+          items:
+            type: string
+          example: ["John Smith", "Jane Doe"]
+        source:
+          type: string
+          enum: [arxiv, manual]
+          example: "arxiv"
+        external_id:
+          type: string
+          example: "2001.12345"
+        url:
+          type: string
+          format: uri
+          example: "https://arxiv.org/abs/2001.12345"
+        published_date:
+          type: string
+          format: date
+          example: "2020-01-15"
+        topics:
+          type: array
+          items:
+            type: string
+          example: ["Graph Theory", "Algorithms"]
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - source
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "UnauthorizedError"
+            message: "Authentication required"
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "ForbiddenError"
+            message: "Insufficient permissions for this operation"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NotFoundError"
+            message: "Resource not found"
+
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "ValidationError"
+            message: "Invalid input data"
+            details:
+              title: ["Title is required"]
+              difficulty: ["Must be one of: easy, medium, hard"]

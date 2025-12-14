@@ -1,8 +1,13 @@
 """
-Test suites for Python concurrency and parallelism code.
+Integration Tests for Production Components.
 
-Organized by test type:
-- unit: Unit tests for individual components
-- integration: Integration tests for complete scenarios
+This module contains comprehensive integration tests for:
+- C++ bindings performance module
+- vLLM provider integration
+- scikit-learn ML pipelines
+- TorchServe model serving
+- DVC data versioning
+- Confidential computing patterns
 """
 
+__version__ = "1.0.0"

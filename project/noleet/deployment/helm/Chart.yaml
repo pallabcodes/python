@@ -1,0 +1,47 @@
+apiVersion: v2
+name: noleet
+description: AI-powered coding project recommendation system
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - ml
+  - coding
+  - education
+  - kubernetes
+home: https://noleet.ai
+sources:
+  - https://github.com/noleet/noleet
+maintainers:
+  - name: NoLeet Team
+    email: team@noleet.ai
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: prometheus
+    version: "15.x.x"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+  - name: grafana
+    version: "6.x.x"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+  - name: elasticsearch
+    version: "7.x.x"
+    repository: "https://helm.elastic.co"
+    condition: elasticsearch.enabled
+  - name: kibana
+    version: "7.x.x"
+    repository: "https://helm.elastic.co"
+    condition: kibana.enabled
+  - name: nginx-ingress
+    version: "4.x.x"
+    repository: "https://kubernetes.github.io/ingress-nginx"
+    condition: nginx-ingress.enabled

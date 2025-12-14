@@ -1,0 +1,129 @@
+groups:
+  - name: noleet-application-alerts
+    rules:
+      - alert: NoleetHighErrorRate
+        expr: rate(noleet_http_requests_total{status=~"5.."}[5m]) / rate(noleet_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | printf \"%.2f\" }}% over the last 5 minutes"
+
+      - alert: NoleetHighLatency
+        expr: histogram_quantile(0.95, rate(noleet_http_request_duration_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95th percentile latency is {{ $value }}s over the last 5 minutes"
+
+      - alert: NoleetLowCacheHitRate
+        expr: rate(noleet_cache_hits_total[5m]) / (rate(noleet_cache_hits_total[5m]) + rate(noleet_cache_misses_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate detected"
+          description: "Cache hit rate is {{ $value | printf \"%.2f\" }}% over the last 5 minutes"
+
+      - alert: NoleetHighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | printf \"%.2f\" }}%"
+
+      - alert: NoleetHighCPUUsage
+        expr: rate(node_cpu_seconds_total{mode!="idle"}[5m]) / rate(node_cpu_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | printf \"%.2f\" }}%"
+
+      - alert: NoleetLLMServiceDown
+        expr: up{job="noleet-llm-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM service is down"
+          description: "LLM service has been down for more than 1 minute"
+
+      - alert: NoleetAgentServiceDown
+        expr: up{job="noleet-agent-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent service is down"
+          description: "Agent service has been down for more than 1 minute"
+
+      - alert: NoleetDatabaseHighConnectionCount
+        expr: pg_stat_activity_count > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection count"
+          description: "Database has {{ $value }} active connections"
+
+      - alert: NoleetRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value | printf \"%.2f\" }}%"
+
+      - alert: NoleetDiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space available is {{ $value | printf \"%.2f\" }}%"
+
+      - alert: NoleetPerformanceRegression
+        expr: increase(noleet_performance_regression_detected_total[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Performance regression detected"
+          description: "Performance regression has been detected in the system"
+
+  - name: noleet-business-metrics-alerts
+    rules:
+      - alert: NoleetLowUserEngagement
+        expr: rate(noleet_user_sessions_total[1h]) < 10
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Low user engagement detected"
+          description: "User session rate is below normal levels"
+
+      - alert: NoleetHighRecommendationRejection
+        expr: rate(noleet_recommendation_rejections_total[1h]) / rate(noleet_recommendations_served_total[1h]) > 0.3
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "High recommendation rejection rate"
+          description: "Recommendation rejection rate is {{ $value | printf \"%.2f\" }}%"
+
+      - alert: NoleetLLMTokenLimitApproaching
+        expr: rate(noleet_llm_tokens_used_total[1h]) > 1000000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High LLM token usage"
+          description: "LLM token usage rate is {{ $value }} tokens per hour"

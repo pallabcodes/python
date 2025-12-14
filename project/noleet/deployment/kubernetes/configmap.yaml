@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: noleet-config
+  namespace: noleet
+  labels:
+    app: noleet
+data:
+  # Application Configuration
+  NOLEET_ENV: "production"
+  NOLEET_LOG_LEVEL: "INFO"
+  NOLEET_AUTO_OPTIMIZE: "true"
+
+  # Database Configuration
+  DATABASE_POOL_SIZE: "20"
+  DATABASE_MAX_OVERFLOW: "30"
+  DATABASE_POOL_TIMEOUT: "30"
+
+  # Redis Configuration
+  REDIS_MAX_CONNECTIONS: "50"
+  REDIS_SOCKET_TIMEOUT: "5"
+  REDIS_SOCKET_CONNECT_TIMEOUT: "5"
+
+  # LLM Configuration
+  LLM_DEFAULT_PROVIDER: "openai"
+  LLM_REQUEST_TIMEOUT: "30"
+  LLM_MAX_RETRIES: "3"
+  LLM_CACHE_TTL: "3600"
+
+  # Agent Configuration
+  AGENT_MAX_CONCURRENT: "10"
+  AGENT_TIMEOUT: "300"
+  AGENT_MEMORY_LIMIT: "512MB"
+
+  # Security Configuration
+  CORS_ALLOW_CREDENTIALS: "true"
+  SESSION_COOKIE_SECURE: "true"
+  SESSION_COOKIE_HTTPONLY: "true"
+  SESSION_COOKIE_SAMESITE: "Lax"
+
+  # Monitoring Configuration
+  PROMETHEUS_METRICS_ENABLED: "true"
+  METRICS_UPDATE_INTERVAL: "30"
+
+  # Cache Configuration
+  CACHE_DEFAULT_TTL: "3600"
+  CACHE_MAX_SIZE: "10000"
+  CACHE_CLEANUP_INTERVAL: "300"
+
+  # Logging Configuration
+  LOG_FORMAT: "json"
+  LOG_MAX_FILE_SIZE: "100MB"
+  LOG_BACKUP_COUNT: "5"
+
+  # Performance Configuration
+  GUNICORN_WORKERS: "4"
+  GUNICORN_WORKER_CLASS: "uvicorn.workers.UvicornWorker"
+  GUNICORN_WORKER_CONNECTIONS: "1000"
+  GUNICORN_MAX_REQUESTS: "1000"
+  GUNICORN_MAX_REQUESTS_JITTER: "50"
+
+  # Feature Flags
+  ENABLE_ADVANCED_ANALYTICS: "true"
+  ENABLE_REAL_TIME_COLLABORATION: "true"
+  ENABLE_AI_INSIGHTS: "true"
+  ENABLE_PERSONALIZATION: "true"
+
+  # External API Configuration
+  LEETCODE_API_TIMEOUT: "10"
+  LEETCODE_RATE_LIMIT: "60"
+  ARXIV_API_TIMEOUT: "15"
+
+  # Backup Configuration
+  BACKUP_RETENTION_DAYS: "30"
+  BACKUP_SCHEDULE: "0 2 * * *"
+  BACKUP_COMPRESSION_LEVEL: "6"
+
+  # Health Check Configuration
+  HEALTH_CHECK_INTERVAL: "30"
+  HEALTH_CHECK_TIMEOUT: "10"
+  HEALTH_CHECK_RETRIES: "3"

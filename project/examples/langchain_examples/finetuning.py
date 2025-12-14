@@ -361,13 +361,13 @@ class SyntheticDataGenerator:
 class ModelQuantizer:
     """
     Advanced Model Quantizer - Production-Grade Quantization Techniques.
-
+    
     Based on:
     - GPTQ (Post-training Quantization for GPT models)
     - AWQ (Activation-aware Weight Quantization)
     - SmoothQuant (Smooth quantization for LLMs)
     - BitsAndBytes quantization techniques
-
+    
     Key Features:
     - INT4, INT8, FP8 quantization
     - Dynamic quantization
@@ -382,10 +382,10 @@ class ModelQuantizer:
     - Enable real-time applications
     - Optimize for specific hardware (GPU, TPU, CPU)
     """
-
+    
     def __init__(self):
         self._logger = logging.getLogger(f"{__name__}.ModelQuantizer")
-
+    
         # Quantization configurations
         self.quantization_configs = {
             "int4": {
@@ -417,13 +417,13 @@ class ModelQuantizer:
     ) -> Dict[str, Any]:
         """
         Comprehensive model quantization with multiple techniques.
-
+        
         Args:
             model: PyTorch model or model path
             quantization_type: int4, int8, fp8, dynamic, static
             calibration_data: Data for static quantization calibration
             **kwargs: Additional quantization parameters
-
+            
         Returns:
             Dict with quantized model and metadata
         """

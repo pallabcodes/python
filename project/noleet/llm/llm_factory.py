@@ -6,6 +6,14 @@ from .llm_base import LLMBase, EmbedderBase
 from .llm_config import LLMConfig
 from .provider_router import ProviderRouter, QualityRequirement
 
+# Import caching for performance optimization
+try:
+    from ..core.cache import cache_llm_response, get_llm_cache
+    CACHING_AVAILABLE = True
+except ImportError:
+    CACHING_AVAILABLE = False
+    logging.getLogger(__name__).warning("Caching not available, LLM responses will not be cached")
+
 
 class LLMFactory:
     """Factory for creating LLM and embedder instances."""

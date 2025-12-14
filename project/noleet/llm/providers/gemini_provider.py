@@ -64,7 +64,7 @@ class GeminiProvider(LLMProvider):
         except Exception:
             return False
 
-    def generate(self, prompt: str, **kwargs) -> str:
+    def _generate_response(self, prompt: str, **kwargs) -> str:
         """
         Generate response using Gemini.
 

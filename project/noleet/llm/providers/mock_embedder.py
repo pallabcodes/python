@@ -27,7 +27,7 @@ class MockEmbedder(EmbedderBase):
         """Mock embedder is always available."""
         return True
 
-    def embed(self, texts: List[str]) -> List[List[float]]:
+    def _embed_texts(self, texts: List[str]) -> List[List[float]]:
         """
         Generate mock embeddings.
 

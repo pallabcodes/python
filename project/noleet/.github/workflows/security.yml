@@ -1,0 +1,133 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety semgrep
+
+      # Bandit - Python security linter
+      - name: Run Bandit
+        run: |
+          bandit -r noleet/ -f json -o bandit-report.json --severity-level medium
+        continue-on-error: true
+
+      # Safety - Dependency vulnerability scanner
+      - name: Run Safety
+        run: |
+          safety check --json --output safety-report.json || true
+
+      # Semgrep - Semantic code analysis
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/security-audit
+          output: semgrep-report.json
+        continue-on-error: true
+
+      # CodeQL - GitHub's built-in security scanning
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+      # Upload security reports
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: Upload Safety results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: safety-report
+          path: safety-report.json
+
+      - name: Upload Semgrep results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+
+      # Create security issue if vulnerabilities found
+      - name: Check for critical vulnerabilities
+        run: |
+          # Check bandit results for high severity issues
+          if [ -f bandit-report.json ]; then
+            high_severity=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json)
+            if [ "$high_severity" -gt 0 ]; then
+              echo "::error::Found $high_severity high severity security issues"
+              exit 1
+            fi
+          fi
+
+          # Check safety results
+          if [ -f safety-report.json ]; then
+            vulnerable_packages=$(jq '.vulnerable_packages | length' safety-report.json)
+            if [ "$vulnerable_packages" -gt 0 ]; then
+              echo "::warning::Found $vulnerable_packages vulnerable packages"
+            fi
+          fi
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v3
+
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified

@@ -1,0 +1,232 @@
+# NoLeet Helm Chart Values
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Application configuration
+app:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: noleet/noleet
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 3
+  serviceAccount:
+    create: true
+    name: noleet-service-account
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  env:
+    NOLEET_ENV: "production"
+    NOLEET_LOG_LEVEL: "INFO"
+    PROMETHEUS_METRICS_ENABLED: "true"
+
+# Database configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "change-me"
+    username: "noleet"
+    password: "change-me"
+    database: "noleet"
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "change-me"
+  architecture: standalone
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "300m"
+
+# Prometheus monitoring
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: true
+      size: 20Gi
+    retention: "30d"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Grafana dashboards
+grafana:
+  enabled: true
+  adminPassword: "change-me"
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+
+# Elasticsearch logging
+elasticsearch:
+  enabled: true
+  replicas: 1
+  minimumMasterNodes: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  persistence:
+    enabled: true
+    size: 50Gi
+  volumeClaimTemplate:
+    accessModes: ["ReadWriteOnce"]
+    storageClassName: "standard"
+    resources:
+      requests:
+        storage: 50Gi
+
+# Kibana visualization
+kibana:
+  enabled: true
+  elasticsearchHosts: "http://noleet-elasticsearch:9200"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+
+# NGINX Ingress Controller
+nginx-ingress:
+  enabled: true
+  controller:
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.noleet.ai
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: app.noleet.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: noleet-tls
+      hosts:
+        - api.noleet.ai
+        - app.noleet.ai
+
+# Secrets configuration (to be created separately)
+secrets:
+  databaseUrl: "postgresql://noleet:change-me@noleet-postgresql:5432/noleet"
+  redisUrl: "redis://:change-me@noleet-redis:6379/0"
+  secretKey: "change-me-super-secret-key"
+  openaiApiKey: "sk-change-me"
+  anthropicApiKey: "sk-ant-change-me"
+  leetcodeSessionCookie: "change-me"
+
+# Network policies
+networkPolicy:
+  enabled: true
+  allowedIngress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: noleet
+      ports:
+        - protocol: TCP
+          port: 8000
+    - from:
+        - podSelector:
+            matchLabels:
+              app: noleet-prometheus
+      ports:
+        - protocol: TCP
+          port: 8000
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Service monitors for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: "30s"
+  scrapeTimeout: "10s"

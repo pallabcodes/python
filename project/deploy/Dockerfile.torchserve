@@ -1,0 +1,24 @@
+# Dockerfile for TorchServe model serving
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+
+# Install TorchServe and dependencies
+RUN pip install torchserve torch-model-archiver torch-workflow-archiver
+
+# Create directories
+RUN mkdir -p /opt/ml/model /opt/ml/config
+
+# Copy model files (if any)
+COPY ../models/ /opt/ml/model/
+
+# Copy TorchServe configuration
+COPY deploy/torchserve/config.properties /opt/ml/config/config.properties
+
+# Expose ports
+EXPOSE 8080 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8081/ping || exit 1
+
+# Default command (will be overridden by docker-compose)
+CMD ["torchserve", "--start", "--model-store", "/opt/ml/model", "--config-file", "/opt/ml/config/config.properties"]

@@ -1,0 +1,82 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'noleet-alerts@noleet.ai'
+  smtp_auth_username: 'noleet-alerts@noleet.ai'
+  smtp_auth_password: 'your-smtp-password'
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'noleet-team'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'noleet-critical'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'noleet-warnings'
+      continue: true
+    - match:
+        alertname: NoleetPerformanceRegression
+      receiver: 'noleet-performance'
+    - match:
+        alertname: NoleetLLMServiceDown|NoleetAgentServiceDown
+      receiver: 'noleet-oncall'
+
+receivers:
+  - name: 'noleet-critical'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#noleet-critical'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        color: 'danger'
+    email_configs:
+      - to: 'noleet-critical@noleet.ai'
+        headers:
+          subject: 'Noleet CRITICAL: {{ .GroupLabels.alertname }}'
+
+  - name: 'noleet-warnings'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#noleet-warnings'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        color: 'warning'
+
+  - name: 'noleet-performance'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#noleet-performance'
+        title: 'Performance Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        color: 'good'
+    email_configs:
+      - to: 'noleet-performance@noleet.ai'
+        headers:
+          subject: 'Noleet Performance: {{ .GroupLabels.alertname }}'
+
+  - name: 'noleet-oncall'
+    pagerduty_configs:
+      - service_key: 'your-pagerduty-service-key'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#noleet-oncall'
+        title: '🚨 ON-CALL: {{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        color: 'danger'
+
+  - name: 'noleet-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#noleet-general'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: 'noleet-team@noleet.ai'

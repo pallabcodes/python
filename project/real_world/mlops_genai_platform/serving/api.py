@@ -169,6 +169,32 @@ async def liveness_check():
     return {"status": "alive"}
 
 
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    # Basic metrics - in production, integrate with prometheus_client
+    metrics_data = f"""# HELP ai_platform_requests_total Total number of requests
+# TYPE ai_platform_requests_total counter
+ai_platform_requests_total{{service="api"}} 0
+
+# HELP ai_platform_requests_duration_seconds Request duration in seconds
+# TYPE ai_platform_requests_duration_seconds histogram
+ai_platform_requests_duration_seconds_bucket{{le="0.1"}} 0
+ai_platform_requests_duration_seconds_bucket{{le="0.5"}} 0
+ai_platform_requests_duration_seconds_bucket{{le="1.0"}} 0
+ai_platform_requests_duration_seconds_bucket{{le="2.0"}} 0
+ai_platform_requests_duration_seconds_bucket{{le="5.0"}} 0
+ai_platform_requests_duration_seconds_bucket{{le="+Inf"}} 0
+ai_platform_requests_duration_seconds_sum 0
+ai_platform_requests_duration_seconds_count 0
+
+# HELP ai_platform_up Service up status
+# TYPE ai_platform_up gauge
+ai_platform_up 1
+"""
+    return metrics_data
+
+
 # MLOps Endpoints
 @app.post("/experiments", tags=["MLOps"])
 async def create_experiment(

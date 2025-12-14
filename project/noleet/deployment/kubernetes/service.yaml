@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-app
+  namespace: noleet
+  labels:
+    app: noleet
+    component: app
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8000
+    protocol: TCP
+    name: https
+  selector:
+    app: noleet
+    component: app
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-app-headless
+  namespace: noleet
+  labels:
+    app: noleet
+    component: app
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: noleet
+    component: app
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-postgres
+  namespace: noleet
+  labels:
+    app: noleet
+    component: database
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: noleet
+    component: database
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-redis
+  namespace: noleet
+  labels:
+    app: noleet
+    component: cache
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis
+  selector:
+    app: noleet
+    component: cache
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-prometheus
+  namespace: noleet
+  labels:
+    app: noleet
+    component: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: prometheus
+  selector:
+    app: noleet
+    component: prometheus
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-grafana
+  namespace: noleet
+  labels:
+    app: noleet
+    component: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: grafana
+  selector:
+    app: noleet
+    component: grafana
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noleet-elasticsearch
+  namespace: noleet
+  labels:
+    app: noleet
+    component: logging
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+    name: elasticsearch
+  selector:
+    app: noleet
+    component: elasticsearch

@@ -49,7 +49,7 @@ class OpenAIEmbedder(EmbedderBase):
                 return None
         return self._client
 
-    def embed(self, texts: List[str]) -> List[List[float]]:
+    def _embed_texts(self, texts: List[str]) -> List[List[float]]:
         """
         Generate embeddings for texts.
 

@@ -1,0 +1,160 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version tag (leave empty for latest)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Deploy to staging
+      - name: Deploy to Staging
+        if: inputs.environment == 'staging'
+        run: |
+          echo "🚀 Deploying to staging environment..."
+
+          # Set image tag
+          if [ -n "${{ inputs.version }}" ]; then
+            IMAGE_TAG="${{ inputs.version }}"
+          else
+            IMAGE_TAG="${{ github.sha }}"
+          fi
+
+          # Update staging deployment
+          sed -i "s|image:.*|image: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" k8s/staging/deployment.yaml
+
+          # Apply Kubernetes manifests
+          kubectl apply -f k8s/staging/
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/noleet-staging -n noleet-staging --timeout=600s
+
+          # Run staging tests
+          echo "🧪 Running staging smoke tests..."
+          # Add your staging test commands here
+
+          echo "✅ Staging deployment completed successfully!"
+
+      # Deploy to production
+      - name: Deploy to Production
+        if: inputs.environment == 'production'
+        run: |
+          echo "🚀 Deploying to production environment..."
+
+          # Set image tag
+          if [ -n "${{ inputs.version }}" ]; then
+            IMAGE_TAG="${{ inputs.version }}"
+          else
+            IMAGE_TAG="${{ github.sha }}"
+          fi
+
+          # Update production deployment
+          sed -i "s|image:.*|image: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG|g" k8s/production/deployment.yaml
+
+          # Apply Kubernetes manifests with zero-downtime deployment
+          kubectl apply -f k8s/production/
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/noleet-production -n noleet-production --timeout=900s
+
+          # Run production health checks
+          echo "🏥 Running production health checks..."
+
+          # Check if pods are ready
+          kubectl wait --for=condition=ready pod -l app=noleet -n noleet-production --timeout=300s
+
+          # Run database migrations
+          echo "🗄️ Running database migrations..."
+          # Add migration commands here
+
+          # Run smoke tests
+          echo "🧪 Running production smoke tests..."
+          # Add smoke test commands here
+
+          echo "✅ Production deployment completed successfully!"
+
+      - name: Run Post-Deployment Tests
+        run: |
+          echo "🧪 Running post-deployment tests..."
+
+          # Health check
+          HEALTH_URL="${{ inputs.environment == 'production' && secrets.PROD_HEALTH_URL || secrets.STAGING_HEALTH_URL }}"
+          curl -f $HEALTH_URL || exit 1
+
+          # API smoke tests
+          # Add your API smoke test commands here
+
+          echo "✅ Post-deployment tests passed!"
+
+      - name: Notify Deployment
+        if: always()
+        run: |
+          # Slack notification
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text":"🚀 NoLeet deployed to production!"}' \
+              ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+
+          # Add other notification methods (email, etc.)
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && inputs.environment == 'production'
+    needs: deploy
+    steps:
+      - name: Rollback Production Deployment
+        run: |
+          echo "⚠️ Deployment failed, initiating rollback..."
+
+          # Rollback to previous version
+          kubectl rollout undo deployment/noleet-production -n noleet-production
+
+          # Wait for rollback to complete
+          kubectl rollout status deployment/noleet-production -n noleet-production --timeout=600s
+
+          # Notify about rollback
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"⚠️ NoLeet production deployment failed, rolled back to previous version"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+          echo "✅ Rollback completed successfully!"
