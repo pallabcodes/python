@@ -1,6 +1,5 @@
 """
 Module: Advanced Descriptors — Reusable Property Logic
-Target: L7 Architects
 
 Key Insights:
 1. Descriptors allow you to encapsulate the "how" of attribute access.

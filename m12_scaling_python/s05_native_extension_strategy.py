@@ -1,6 +1,5 @@
 """
 Module: Native Extension Strategy — The Python Glue Code Architecture
-Target: L7 Systems Engineers (The Google Blueprint)
 
 Key Insights:
 1. Python is the "Glue"; C++/Rust/C is the "Engine".

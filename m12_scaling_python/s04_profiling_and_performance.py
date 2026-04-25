@@ -1,6 +1,5 @@
 """
 Module: Production Diagnostics and Performance Profiling
-Target: L7 Performance Engineers
 
 Key Insights:
 1. Don't optimize until you MEASURE.

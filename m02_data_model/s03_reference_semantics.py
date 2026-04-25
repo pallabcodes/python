@@ -1,6 +1,5 @@
 """
 Module: Reference Semantics and Argument Passing
-Target: L5+ Systems Engineers
 
 Key Insights for C/C++ Engineers:
 1. Python uses "Pass by Object Reference" (or "Pass by Assignment").

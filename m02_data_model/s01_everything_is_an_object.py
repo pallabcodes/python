@@ -1,6 +1,5 @@
 """
 Module: Python Data Model — Everything is an Object
-Target: L5+ Systems Engineers
 
 Key Insights for C/C++ Engineers:
 1. In Python, types are objects, functions are objects, and even classes are objects.

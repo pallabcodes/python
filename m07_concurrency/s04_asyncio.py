@@ -1,6 +1,5 @@
 """
 Module: asyncio — Single-threaded Cooperative Multitasking
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'asyncio' is an event loop running in a single thread.

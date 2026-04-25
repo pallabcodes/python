@@ -1,6 +1,5 @@
 """
 Module: Classes, Instances, and Scope
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'self' is not a keyword (just a convention); it's the first argument passed by Python.

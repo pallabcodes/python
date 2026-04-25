@@ -1,6 +1,5 @@
 """
 Module: Pathlib — Modern Object-Oriented Filesystem I/O
-Target: L5+ Systems Engineers
 
 Key Insights for C++ Engineers:
 1. 'pathlib' replaces 'os.path' and 'glob'.

@@ -1,6 +1,5 @@
 """
 Module: C Interoperability with ctypes
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'ctypes' is a foreign function library for Python.

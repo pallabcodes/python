@@ -1,6 +1,5 @@
 """
 Module: Advanced Asyncio Patterns for High Throughput
-Target: L7 Engineers (Discord/Scale standard)
 
 Key Insights:
 1. Producer-Consumer: Using 'asyncio.Queue' to decouple ingestion from processing.

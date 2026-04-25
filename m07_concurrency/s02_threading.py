@@ -1,6 +1,5 @@
 """
 Module: Multi-threading for IO-Bound Tasks
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Use threads for IO-bound work (network, disk, UI).

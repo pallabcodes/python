@@ -1,6 +1,5 @@
 """
 Module: Buffer Protocol and Zero-Copy Interactions
-Target: L5/L7 Engineers
 
 How to bypass the serialization overhead when communicating with native extensions
 (C/C++/Rust) or reading I/O directly into pre-allocated memory using Python's Buffer Protocol.

@@ -1,6 +1,5 @@
 """
 Module: Protocols — Structural Subtyping (Static Duck Typing)
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'Protocol' (PEP 544) allows for structural typing (like Go interfaces).

@@ -1,6 +1,5 @@
 """
 Module: GIL Mechanics & Thread Context Switching
-Target: L5/L7 Engineers
 
 Demonstrates sys.setswitchinterval, OS-level thread preemption overhead, 
 and bytecode atomicity.

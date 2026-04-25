@@ -1,6 +1,5 @@
 """
 Module: Control Flow and Pattern Matching
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'match/case' (Structural Pattern Matching) is Python 3.10's answer to Rust/C++ variant switching.

@@ -1,6 +1,5 @@
 """
 Module: Variables, Identity, and Built-in Types
-Target: L5+ Systems Engineers (C/C++ Background)
 
 Key Insights for C/C++ Engineers:
 1. Python variables are NOT memory locations; they are NAMES bound to OBJECTS.

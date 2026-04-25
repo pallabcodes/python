@@ -1,6 +1,5 @@
 """
 Module: Logging — Production-grade Diagnostics
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Don't use 'print' for diagnostics; use 'logging'.

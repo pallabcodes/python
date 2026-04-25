@@ -1,6 +1,5 @@
 """
 Module: Advanced Observability and Tracing
-Target: L5/L7 Engineers
 
 How to debug production memory leaks and profile CPU constraints 
 without using heavy tracing (like cProfile or sys.settrace) in production.

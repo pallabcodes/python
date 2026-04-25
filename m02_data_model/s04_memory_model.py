@@ -1,6 +1,5 @@
 """
 Module: Python Memory Model and Garbage Collection
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. CPython primarily uses REFERENCE COUNTING.

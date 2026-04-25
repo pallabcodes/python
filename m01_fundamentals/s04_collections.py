@@ -1,6 +1,5 @@
 """
 Module: Core Collections (Built-in Data Structures)
-Target: L5+ Systems Engineers
 
 Mental Mapping for C++ Engineers:
 - list  -> std::vector<PyObject*> (Dynamic array of pointers)

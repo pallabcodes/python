@@ -1,6 +1,5 @@
 """
 Module: Exception Handling and Error Patterns
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Python uses "EAFP" (Easier to Ask for Forgiveness than Permission).

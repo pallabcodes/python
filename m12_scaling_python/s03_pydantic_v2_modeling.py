@@ -1,6 +1,5 @@
 """
 Module: High-Performance Data Modeling with Pydantic V2
-Target: L7 Engineers
 
 Key Insights for Systems Engineers:
 1. Pydantic V2 is written in RUST, making it significantly faster than V1 or standard dataclasses.

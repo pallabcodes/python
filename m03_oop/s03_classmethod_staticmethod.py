@@ -1,6 +1,5 @@
 """
 Module: Method Types (Instance, Class, Static)
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Instance Method: Receives 'self' (the object).

@@ -1,6 +1,5 @@
 """
 Module: Dunder (Double Underscore) Methods — The Python Protocols
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Dunder methods are hooks into Python's syntax (operator overloading, iteration).

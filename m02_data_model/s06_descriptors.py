@@ -1,6 +1,5 @@
 """
 Module: The Descriptor Protocol
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Descriptors are objects that define __get__, __set__, or __delete__.

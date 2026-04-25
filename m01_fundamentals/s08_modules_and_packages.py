@@ -1,6 +1,5 @@
 """
 Module: The Python Import System
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'import' is an executable statement, not a pre-processor directive.

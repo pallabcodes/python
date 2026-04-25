@@ -1,6 +1,5 @@
 """
 Module: Dataclasses — Boilerplate-free Data Objects
-Target: L5+ Systems Engineers
 
 Key Insights for C++ Engineers:
 1. '@dataclass' (3.7+) generates __init__, __repr__, __eq__, etc. automatically.

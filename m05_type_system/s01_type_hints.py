@@ -1,6 +1,5 @@
 """
 Module: Modern Type Hinting and Static Analysis
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Type hints are for STATIC ANALYSIS (mypy, pyright). They are NOT enforced at runtime.

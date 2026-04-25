@@ -1,6 +1,5 @@
 """
 Module: Functions, Scoping, and First-Class Citizens
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Functions are objects (First-Class Citizens).

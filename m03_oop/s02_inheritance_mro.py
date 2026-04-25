@@ -1,6 +1,5 @@
 """
 Module: Multiple Inheritance and Method Resolution Order (MRO)
-Target: L5+ Systems Engineers
 
 Key Insights for C++ Engineers:
 1. Python supports Multiple Inheritance.

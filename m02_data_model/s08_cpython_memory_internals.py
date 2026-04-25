@@ -1,6 +1,5 @@
 """
 Module: CPython Memory Internals & Data Layout
-Target: L5/L7 Engineers
 
 Deep dive into CPython's memory management, small object allocators (pymalloc),
 and reference counting mechanics.

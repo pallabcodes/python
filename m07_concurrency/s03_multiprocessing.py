@@ -1,6 +1,5 @@
 """
 Module: Multi-processing for CPU-Bound Tasks
-Target: L5+ Systems Engineers
 
 Key Insights for C/C++ Engineers:
 1. Each process is a separate OS process with its own memory space.

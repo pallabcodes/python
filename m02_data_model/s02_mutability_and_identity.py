@@ -1,6 +1,5 @@
 """
 Module: Mutability and Identity
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 'is' vs '==': Identity vs Equality.

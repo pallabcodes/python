@@ -1,6 +1,5 @@
 """
 Module: Regular Expressions (re module)
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. 're.search' vs 're.match': Search looks anywhere; match looks from the start.

@@ -1,6 +1,5 @@
 """
 Module: Strings and Text Processing
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Strings are IMMUTABLE sequences of Unicode code points.

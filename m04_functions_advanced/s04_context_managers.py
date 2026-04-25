@@ -1,6 +1,5 @@
 """
 Module: Context Managers — The RAII Equivalent
-Target: L5+ Systems Engineers
 
 Key Insights for C++ Engineers:
 1. 'with' statement provides a deterministic way to manage resources.

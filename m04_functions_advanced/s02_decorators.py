@@ -1,6 +1,5 @@
 """
 Module: Decorators — Metaprogramming with Functions
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Decorators are Higher-Order Functions that wrap other functions.

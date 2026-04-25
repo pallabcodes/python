@@ -1,6 +1,5 @@
 """
 Module: Abstract Base Classes (ABCs) — Nominal Typing
-Target: L5+ Systems Engineers
 
 Key Insights for C++/Java Engineers:
 1. ABCs are the equivalent of "Pure Virtual Classes" or "Interfaces".

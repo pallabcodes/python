@@ -1,6 +1,5 @@
 """
 Module: Advanced Collections (collections module)
-Target: L5+ Systems Engineers
 
 Key Insights for C++ Engineers:
 1. deque       -> std::deque (Double-ended queue, O(1) start/end operations)

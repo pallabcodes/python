@@ -1,6 +1,5 @@
 """
 Module: Metaclasses — The "Class of a Class"
-Target: L7 Architects & Framework Authors
 
 Key Insights for Systems Engineers:
 1. In Python, classes ARE objects. Their type is 'type' (the default metaclass).

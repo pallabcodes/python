@@ -1,6 +1,5 @@
 """
 Module: The Global Interpreter Lock (GIL) — Reality Check
-Target: L5+ Systems Engineers
 
 Key Insights for C/C++ Engineers:
 1. The GIL is a mutex that protects access to Python objects, preventing multiple native threads from executing Python bytecodes at once.

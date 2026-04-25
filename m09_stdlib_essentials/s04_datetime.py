@@ -1,6 +1,5 @@
 """
 Module: Datetime and Timezones
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Always work with UTC internally.

@@ -1,6 +1,5 @@
 """
 Module: Operators and Boolean Logic
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Short-circuiting logic: `and` and `or` return the actual objects, not necessarily a boolean.

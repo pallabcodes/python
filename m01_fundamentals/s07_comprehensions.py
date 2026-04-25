@@ -1,6 +1,5 @@
 """
 Module: Comprehensions and Generator Expressions
-Target: L5+ Systems Engineers
 
 Key Insights:
 1. Comprehensions are more efficient than manual .append() loops.

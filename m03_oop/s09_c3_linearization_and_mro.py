@@ -1,6 +1,5 @@
 """
 Module: MRO (C3 Linearization) and Metaprogramming Details
-Target: L5/L7 Engineers
 
 Understanding Python's method resolution order mathematically, and implementing
 a native-level Descriptor to demonstrate how @property actually works at the CPython level.

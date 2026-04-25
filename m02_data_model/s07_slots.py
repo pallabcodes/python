@@ -1,6 +1,5 @@
 """
 Module: Memory Optimization with __slots__
-Target: L5+ Systems Engineers
 
 Key Insights for C/C++ Engineers:
 1. By default, every Python object stores attributes in a hash map (__dict__).
