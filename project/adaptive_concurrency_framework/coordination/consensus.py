@@ -1,9 +1,6 @@
 """
-Consensus algorithm implementation (Raft-like) for distributed coordination.
-
-Based on concepts from "Concurrency Control in Distributed Database Systems"
-by Bernstein & Goodman, implementing Raft-like consensus for optimization
-decision coordination.
+Refactored Consensus Module
+Patterns: Strategy (Transport), Factory (Node Creation), State Machine (Raft)
 """
 
 import asyncio
@@ -14,180 +11,116 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .transport import AbstractTransport, RaftMessage
+
 logger = logging.getLogger(__name__)
 
-
 class NodeState(Enum):
-    """Node state in consensus algorithm."""
     FOLLOWER = "follower"
     CANDIDATE = "candidate"
     LEADER = "leader"
 
-
 @dataclass
 class LogEntry:
-    """Log entry for consensus."""
-    
     term: int
     index: int
     command: Any
-    timestamp: float = field(default_factory=time.time)
-
-
-@dataclass
-class VoteRequest:
-    """Vote request in consensus."""
-    
-    term: int
-    candidate_id: str
-    last_log_index: int
-    last_log_term: int
-
-
-@dataclass
-class VoteResponse:
-    """Vote response in consensus."""
-    
-    term: int
-    vote_granted: bool
-
 
 class ConsensusCoordinator:
     """
-    Raft-like consensus coordinator for optimization decisions.
-    
-    Based on concepts from Bernstein & Goodman's distributed database
-    concurrency control, implementing consensus for coordinating optimization
-    decisions across multiple instances.
-    
-    Features:
-    - Leader election
-    - Log replication
-    - Fault tolerance
-    - Distributed coordination
+    Raft Consensus implementation using Strategy Pattern for Transport.
     """
     
-    def __init__(self, node_id: Optional[str] = None):
-        """
-        Initialize consensus coordinator.
+    def __init__(self, node_id: str, transport: AbstractTransport, peers: List[str]):
+        self.node_id = node_id
+        self.transport = transport
+        self.peers = peers
         
-        Args:
-            node_id: Unique identifier for this node
-        """
-        self.node_id = node_id or str(uuid.uuid4())
         self.state = NodeState.FOLLOWER
         self.current_term = 0
-        self.voted_for: Optional[str] = None
+        self.voted_for = None
         self.log: List[LogEntry] = []
         self.commit_index = 0
-        self.last_applied = 0
         
         self._lock = asyncio.Lock()
-        self._election_timeout = 5.0
-        self._heartbeat_interval = 1.0
+        self._election_timeout = 2.0 + (uuid.uuid4().int % 1000) / 500.0 # Random jitter
         self._last_heartbeat = time.time()
-        self._election_task: Optional[asyncio.Task] = None
-        self._heartbeat_task: Optional[asyncio.Task] = None
-        self._logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        
-    async def initialize(self) -> None:
-        """Initialize consensus coordinator."""
-        self._logger.info(f"Initializing consensus coordinator: {self.node_id}")
-        self._election_task = asyncio.create_task(self._election_loop())
-        
-    async def shutdown(self) -> None:
-        """Shutdown consensus coordinator."""
-        self._logger.info("Shutting down consensus coordinator")
-        if self._election_task:
-            self._election_task.cancel()
-        if self._heartbeat_task:
-            self._heartbeat_task.cancel()
-        
-    async def _election_loop(self) -> None:
-        """Background task for leader election."""
-        while True:
-            try:
-                await asyncio.sleep(self._election_timeout)
-                
-                async with self._lock:
-                    if self.state == NodeState.FOLLOWER:
-                        elapsed = time.time() - self._last_heartbeat
-                        if elapsed > self._election_timeout:
-                            # Start election
-                            await self._start_election()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self._logger.error(f"Election loop error: {e}")
-    
-    async def _start_election(self) -> None:
-        """Start leader election."""
+        self._active = False
+
+    async def start(self):
+        self._active = True
+        asyncio.create_task(self.transport.listen(self._on_message))
+        asyncio.create_task(self._election_timer())
+
+    async def _on_message(self, message: RaftMessage) -> Optional[RaftMessage]:
+        async with self._lock:
+            if message.term > self.current_term:
+                self.current_term = message.term
+                self.state = NodeState.FOLLOWER
+                self.voted_for = None
+            
+            if message.type == "request_vote":
+                return await self._handle_vote_request(message)
+            elif message.type == "append_entries":
+                return await self._handle_append_entries(message)
+        return None
+
+    async def _election_timer(self):
+        while self._active:
+            await asyncio.sleep(0.1)
+            async with self._lock:
+                if self.state != NodeState.LEADER:
+                    if time.time() - self._last_heartbeat > self._election_timeout:
+                        await self._start_election()
+
+    async def _start_election(self):
         self.state = NodeState.CANDIDATE
         self.current_term += 1
         self.voted_for = self.node_id
-        
-        self._logger.info(f"Starting election for term {self.current_term}")
-        
-        # In a real implementation, would request votes from other nodes
-        # For now, assume single-node or majority vote
-        
-        # Simulate becoming leader
-        await asyncio.sleep(0.1)
-        self.state = NodeState.LEADER
         self._last_heartbeat = time.time()
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        logger.info(f"Node {self.node_id} starting election for term {self.current_term}")
         
-        self._logger.info(f"Elected as leader for term {self.current_term}")
-    
-    async def _heartbeat_loop(self) -> None:
-        """Background task for sending heartbeats."""
-        while self.state == NodeState.LEADER:
-            try:
-                await asyncio.sleep(self._heartbeat_interval)
-                self._last_heartbeat = time.time()
-                # In real implementation, would send heartbeats to followers
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self._logger.error(f"Heartbeat loop error: {e}")
-    
-    async def propose_decision(self, decision: Any) -> bool:
-        """
-        Propose an optimization decision.
+        votes = 1
+        for peer in self.peers:
+            msg = RaftMessage("request_vote", self.node_id, self.current_term, {})
+            resp = await self.transport.send(peer, msg)
+            if resp and resp.data.get("vote_granted"):
+                votes += 1
         
-        Args:
-            decision: The decision to propose
-            
-        Returns:
-            True if decision committed, False otherwise
-        """
-        async with self._lock:
-            if self.state != NodeState.LEADER:
-                self._logger.warning("Not leader, cannot propose decision")
-                return False
-            
-            # Append to log
-            entry = LogEntry(
-                term=self.current_term,
-                index=len(self.log),
-                command=decision
-            )
-            self.log.append(entry)
-            
-            # In real implementation, would replicate to followers
-            # For now, commit immediately
-            self.commit_index = len(self.log) - 1
-            
-            self._logger.info(f"Proposed decision: {decision} (term={self.current_term}, index={entry.index})")
-            
-            return True
-    
-    async def get_committed_decisions(self) -> List[Any]:
-        """Get all committed decisions."""
-        async with self._lock:
-            return [entry.command for entry in self.log[:self.commit_index + 1]]
-    
-    def is_leader(self) -> bool:
-        """Check if this node is the leader."""
-        return self.state == NodeState.LEADER
+        if votes > (len(self.peers) + 1) / 2:
+            await self._become_leader()
 
+    async def _become_leader(self):
+        self.state = NodeState.LEADER
+        logger.info(f"Node {self.node_id} became LEADER for term {self.current_term}")
+        asyncio.create_task(self._heartbeat_loop())
+
+    async def _heartbeat_loop(self):
+        while self.state == NodeState.LEADER and self._active:
+            for peer in self.peers:
+                msg = RaftMessage("append_entries", self.node_id, self.current_term, {})
+                await self.transport.send(peer, msg)
+            await asyncio.sleep(0.5)
+
+    async def _handle_vote_request(self, msg: RaftMessage) -> RaftMessage:
+        granted = False
+        if msg.term >= self.current_term and (self.voted_for is None or self.voted_for == msg.sender_id):
+            granted = True
+            self.voted_for = msg.sender_id
+            self._last_heartbeat = time.time()
+        
+        return RaftMessage("vote_response", self.node_id, self.current_term, {"vote_granted": granted})
+
+    async def _handle_append_entries(self, msg: RaftMessage) -> RaftMessage:
+        self._last_heartbeat = time.time()
+        return RaftMessage("append_response", self.node_id, self.current_term, {"success": True})
+
+class ConsensusFactory:
+    """Factory Pattern: Creating nodes with the right configuration."""
+    
+    @staticmethod
+    def create_socket_node(node_id: str, host: str, port: int, peer_map: Dict[str, str]) -> ConsensusCoordinator:
+        from .transport import SocketTransport
+        transport = SocketTransport(node_id, host, port, peer_map)
+        peers = [pid for pid in peer_map.keys() if pid != node_id]
+        return ConsensusCoordinator(node_id, transport, peers)

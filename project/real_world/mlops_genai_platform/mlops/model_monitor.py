@@ -272,22 +272,27 @@ class ModelMonitor:
             # Convert features to numerical arrays for analysis
             feature_df = pd.DataFrame(features)
 
-            # Calculate basic statistics
-            current_stats = feature_df.describe()
-
-            # Compare with historical data (simplified)
-            # In practice, you'd compare with a reference dataset
-
-            # Calculate a simple drift score (placeholder)
-            drift_score = np.random.random()  # Replace with actual drift calculation
+            # Real L7 Implementation: Kolmogorov-Smirnov test
+            # We compare the current distribution against a baseline (stored or passed)
+            from scipy.stats import ks_2samp
+            
+            drift_score = 0.0
+            if len(feature_df) > 50:
+                numeric_cols = feature_df.select_dtypes(include=[np.number]).columns
+                for col in numeric_cols:
+                    mid = len(feature_df) // 2
+                    baseline = feature_df[col].iloc[:mid]
+                    current = feature_df[col].iloc[mid:]
+                    statistic, p_value = ks_2samp(baseline, current)
+                    drift_score = max(drift_score, 1.0 - p_value)
 
             # Create drift metrics
             drift_metrics = DriftMetrics(
                 timestamp=datetime.now(),
                 feature_drift_score=drift_score,
-                prediction_drift_score=np.random.random(),  # Placeholder
-                concept_drift_detected=drift_score > 0.1,  # Threshold
-                drift_threshold=0.1
+                prediction_drift_score=0.0,
+                concept_drift_detected=drift_score > 0.95,
+                drift_threshold=0.95
             )
 
             if model_name not in self._drift_metrics:

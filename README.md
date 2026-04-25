@@ -6,8 +6,9 @@ A comprehensive learning repository for mastering Python concurrency and paralle
 
 This is a monorepo containing:
 
-- **`project/`** - Main learning project with comprehensive examples, exercises, and real-world scenarios
-- **`references/`** - External reference materials from other repositories, libraries, and learning resources
+- **`project/`** - Main learning project with comprehensive examples, exercises, and real-world scenarios.
+- **`m01-m12/`** - Systems Engineering Mastery modules (Internals, Performance, Memory).
+- **`references/`** - External reference materials.
 
 ## Navigation
 
