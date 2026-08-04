@@ -1,20 +1,22 @@
-"""Integrator for multiprocessing examples."""
+"""Integrator for multiprocessing examples enforcing Google-grade BaseIntegrator ABC contract."""
 
-from typing import Any, Dict, List, Optional
 import logging
-import sys
 import os
+import sys
+from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../examples/multiprocessing_examples"))
 
+from .base_integrator import BaseIntegrator
 
-class MultiprocessingIntegrator:
-    """Integrate multiprocessing examples into orchestrator."""
+
+class MultiprocessingIntegrator(BaseIntegrator):
+    """Integrate multiprocessing techniques into intelligent orchestrator."""
 
     def __init__(
         self,
         logger: Optional[logging.Logger] = None
-    ):
+    ) -> None:
         """Initialize multiprocessing integrator.
 
         Args:
@@ -35,7 +37,7 @@ class MultiprocessingIntegrator:
         Returns:
             List of technique names
         """
-        return self._techniques
+        return list(self._techniques)
 
     def create_strategy(
         self,
@@ -50,11 +52,19 @@ class MultiprocessingIntegrator:
 
         Returns:
             Strategy dictionary
+
+        Raises:
+            ValueError: If target technique is not supported.
         """
+        if technique not in self._techniques:
+            raise ValueError(
+                f"Unsupported multiprocessing technique '{technique}'. "
+                f"Supported: {self._techniques}"
+            )
+
         self._logger.info(f"Creating multiprocessing strategy: {technique}")
         return {
             "type": "multiprocessing",
             "technique": technique,
             "config": config
         }
-

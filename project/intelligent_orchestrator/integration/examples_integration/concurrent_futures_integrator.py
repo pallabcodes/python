@@ -1,20 +1,22 @@
-"""Integrator for concurrent.futures examples."""
+"""Integrator for concurrent.futures examples enforcing BaseIntegrator ABC contract."""
 
-from typing import Any, Dict, List, Optional
 import logging
-import sys
 import os
+import sys
+from typing import Any, Dict, List, Optional
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../examples/concurrent_futures"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../examples/concurrent_futures_examples"))
+
+from .base_integrator import BaseIntegrator
 
 
-class ConcurrentFuturesIntegrator:
-    """Integrate concurrent.futures examples into orchestrator."""
+class ConcurrentFuturesIntegrator(BaseIntegrator):
+    """Integrate concurrent.futures executor techniques into orchestrator."""
 
     def __init__(
         self,
         logger: Optional[logging.Logger] = None
-    ):
+    ) -> None:
         """Initialize concurrent.futures integrator.
 
         Args:
@@ -24,10 +26,10 @@ class ConcurrentFuturesIntegrator:
         self._techniques: List[str] = [
             "thread_pool_executor",
             "process_pool_executor",
-            "future_management",
-            "parallel_map"
+            "as_completed",
+            "future_callbacks"
         ]
-        self._logger.info("Concurrent.futures integrator initialized")
+        self._logger.info("ConcurrentFutures integrator initialized")
 
     def get_available_techniques(self) -> List[str]:
         """Get list of available concurrent.futures techniques.
@@ -35,7 +37,7 @@ class ConcurrentFuturesIntegrator:
         Returns:
             List of technique names
         """
-        return self._techniques
+        return list(self._techniques)
 
     def create_strategy(
         self,
@@ -50,11 +52,19 @@ class ConcurrentFuturesIntegrator:
 
         Returns:
             Strategy dictionary
+
+        Raises:
+            ValueError: If target technique is not supported.
         """
+        if technique not in self._techniques:
+            raise ValueError(
+                f"Unsupported concurrent.futures technique '{technique}'. "
+                f"Supported: {self._techniques}"
+            )
+
         self._logger.info(f"Creating concurrent.futures strategy: {technique}")
         return {
             "type": "concurrent_futures",
             "technique": technique,
             "config": config
         }
-

@@ -1,20 +1,22 @@
-"""Integrator for threading examples."""
+"""Integrator for threading examples enforcing Google-grade BaseIntegrator ABC contract."""
 
-from typing import Any, Dict, List, Optional
 import logging
-import sys
 import os
+import sys
+from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../examples/threading_examples"))
 
+from .base_integrator import BaseIntegrator
 
-class ThreadingIntegrator:
-    """Integrate threading examples into orchestrator."""
+
+class ThreadingIntegrator(BaseIntegrator):
+    """Integrate multithreading techniques into intelligent orchestrator."""
 
     def __init__(
         self,
         logger: Optional[logging.Logger] = None
-    ):
+    ) -> None:
         """Initialize threading integrator.
 
         Args:
@@ -22,10 +24,10 @@ class ThreadingIntegrator:
         """
         self._logger = logger or logging.getLogger(__name__)
         self._techniques: List[str] = [
+            "thread_locks",
+            "condition_variables",
             "thread_pools",
-            "producer_consumer",
-            "synchronization",
-            "thread_safe_structures"
+            "daemon_threads"
         ]
         self._logger.info("Threading integrator initialized")
 
@@ -35,7 +37,7 @@ class ThreadingIntegrator:
         Returns:
             List of technique names
         """
-        return self._techniques
+        return list(self._techniques)
 
     def create_strategy(
         self,
@@ -50,11 +52,19 @@ class ThreadingIntegrator:
 
         Returns:
             Strategy dictionary
+
+        Raises:
+            ValueError: If target technique is not supported.
         """
+        if technique not in self._techniques:
+            raise ValueError(
+                f"Unsupported threading technique '{technique}'. "
+                f"Supported: {self._techniques}"
+            )
+
         self._logger.info(f"Creating threading strategy: {technique}")
         return {
             "type": "threading",
             "technique": technique,
             "config": config
         }
-
